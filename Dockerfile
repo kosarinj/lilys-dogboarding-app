@@ -3,6 +3,11 @@
 # Stage 1: Build client
 FROM node:20-alpine AS client-build
 WORKDIR /app/client
+
+# Accept build arguments for Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ ./
