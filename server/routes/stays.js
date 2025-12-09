@@ -3,9 +3,18 @@ import { query } from '../models/db.js'
 
 const router = express.Router()
 
-// Fixed fees for dropoff and pickup
-const DROPOFF_FEE = 15.00
-const PICKUP_FEE = 15.00
+// Helper function to get fees from settings
+async function getFees() {
+  const result = await query('SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($1, $2)', ['dropoff_fee', 'pickup_fee'])
+  const fees = {}
+  result.rows.forEach(row => {
+    fees[row.setting_key] = parseFloat(row.setting_value)
+  })
+  return {
+    dropoff: fees.dropoff_fee || 15.00,
+    pickup: fees.pickup_fee || 15.00
+  }
+}
 
 // GET /api/stays
 router.get('/', async (req, res) => {
@@ -78,9 +87,12 @@ router.post('/', async (req, res) => {
 
     const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
 
+    // Get current fees from settings
+    const fees = await getFees()
+
     // Calculate fees
-    const dropoff_fee = requires_dropoff ? DROPOFF_FEE : 0
-    const pickup_fee = requires_pickup ? PICKUP_FEE : 0
+    const dropoff_fee = requires_dropoff ? fees.dropoff : 0
+    const pickup_fee = requires_pickup ? fees.pickup : 0
 
     // Total cost = (daily rate × days) + dropoff fee + pickup fee
     const boarding_cost = daily_rate * days_count
@@ -129,9 +141,12 @@ router.put('/:id', async (req, res) => {
     )
     const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
 
+    // Get current fees from settings
+    const fees = await getFees()
+
     // Calculate fees
-    const dropoff_fee = requires_dropoff ? DROPOFF_FEE : 0
-    const pickup_fee = requires_pickup ? PICKUP_FEE : 0
+    const dropoff_fee = requires_dropoff ? fees.dropoff : 0
+    const pickup_fee = requires_pickup ? fees.pickup : 0
 
     // Total cost = (daily rate × days) + dropoff fee + pickup fee
     const boarding_cost = daily_rate * days_count

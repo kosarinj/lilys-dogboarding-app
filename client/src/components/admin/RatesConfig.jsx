@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
-import { ratesAPI } from '../../utils/api'
+import { ratesAPI, settingsAPI } from '../../utils/api'
 import './admin.css'
 
 function RatesConfig() {
   const [rates, setRates] = useState([])
+  const [settings, setSettings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingRate, setEditingRate] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [editingSetting, setEditingSetting] = useState(null)
+  const [editSettingValue, setEditSettingValue] = useState('')
 
   useEffect(() => {
     loadRates()
@@ -16,8 +19,12 @@ function RatesConfig() {
   const loadRates = async () => {
     try {
       setLoading(true)
-      const response = await ratesAPI.getAll()
-      setRates(response.data)
+      const [ratesRes, settingsRes] = await Promise.all([
+        ratesAPI.getAll(),
+        settingsAPI.getAll()
+      ])
+      setRates(ratesRes.data)
+      setSettings(settingsRes.data)
       setError(null)
     } catch (err) {
       setError('Failed to load rates. Please try again.')
@@ -47,6 +54,25 @@ function RatesConfig() {
   const handleCancel = () => {
     setEditingRate(null)
     setEditValue('')
+    setEditingSetting(null)
+    setEditSettingValue('')
+  }
+
+  const handleEditSetting = (setting) => {
+    setEditingSetting(setting.setting_key)
+    setEditSettingValue(setting.setting_value)
+  }
+
+  const handleSaveSetting = async (settingKey) => {
+    try {
+      await settingsAPI.update(settingKey, { setting_value: parseFloat(editSettingValue) })
+      setEditingSetting(null)
+      setEditSettingValue('')
+      loadRates()
+    } catch (err) {
+      setError('Failed to update setting. Please try again.')
+      console.error(err)
+    }
   }
 
   const formatCurrency = (amount) => {
@@ -232,41 +258,107 @@ function RatesConfig() {
       <div className="form-card" style={{ marginTop: '24px' }}>
         <h2 style={{ marginBottom: '16px', fontSize: '18px' }}>Additional Services</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{
-            padding: '16px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #e8e8e8'
-          }}>
-            <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
-              🚗 Drop-off Service
+          {settings.filter(s => s.setting_key === 'dropoff_fee').map(setting => (
+            <div key={setting.setting_key} style={{
+              padding: '16px',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e8e8e8'
+            }}>
+              <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+                🚗 Drop-off Service
+              </div>
+              {editingSetting === setting.setting_key ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editSettingValue}
+                    onChange={(e) => setEditSettingValue(e.target.value)}
+                    style={{
+                      width: '80px',
+                      padding: '6px 10px',
+                      fontSize: '16px',
+                      border: '2px solid var(--theme-primary, #f472b6)',
+                      borderRadius: '6px'
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={() => handleSaveSetting(setting.setting_key)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                    Save
+                  </button>
+                  <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                    {formatCurrency(setting.setting_value)}
+                    <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+                    Optional service for customer convenience
+                  </div>
+                  <button onClick={() => handleEditSetting(setting)} className="btn btn-edit" style={{ padding: '6px 12px', marginTop: '12px' }}>
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
-              $15.00
-              <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
-            </div>
-            <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
-              Optional service for customer convenience
-            </div>
-          </div>
+          ))}
 
-          <div style={{
-            padding: '16px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #e8e8e8'
-          }}>
-            <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
-              🏠 Pick-up Service
+          {settings.filter(s => s.setting_key === 'pickup_fee').map(setting => (
+            <div key={setting.setting_key} style={{
+              padding: '16px',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e8e8e8'
+            }}>
+              <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+                🏠 Pick-up Service
+              </div>
+              {editingSetting === setting.setting_key ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editSettingValue}
+                    onChange={(e) => setEditSettingValue(e.target.value)}
+                    style={{
+                      width: '80px',
+                      padding: '6px 10px',
+                      fontSize: '16px',
+                      border: '2px solid var(--theme-primary, #f472b6)',
+                      borderRadius: '6px'
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={() => handleSaveSetting(setting.setting_key)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                    Save
+                  </button>
+                  <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                    {formatCurrency(setting.setting_value)}
+                    <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+                    Optional service for customer convenience
+                  </div>
+                  <button onClick={() => handleEditSetting(setting)} className="btn btn-edit" style={{ padding: '6px 12px', marginTop: '12px' }}>
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
-              $15.00
-              <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
-            </div>
-            <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
-              Optional service for customer convenience
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

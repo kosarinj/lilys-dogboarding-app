@@ -121,6 +121,16 @@ CREATE INDEX idx_bills_code ON bills(bill_code);
 CREATE INDEX idx_bill_items_bill_id ON bill_items(bill_id);
 CREATE INDEX idx_payments_bill_id ON payments(bill_id);
 
+-- Settings table for global configuration
+CREATE TABLE IF NOT EXISTS settings (
+  id SERIAL PRIMARY KEY,
+  setting_key VARCHAR(255) UNIQUE NOT NULL,
+  setting_value DECIMAL(10,2) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Insert default rates (example)
 INSERT INTO rates (dog_size, rate_type, price_per_day) VALUES
   ('small', 'regular', 40.00),
@@ -129,3 +139,8 @@ INSERT INTO rates (dog_size, rate_type, price_per_day) VALUES
   ('medium', 'holiday', 75.00),
   ('large', 'regular', 60.00),
   ('large', 'holiday', 90.00);
+
+-- Insert default settings
+INSERT INTO settings (setting_key, setting_value, description) VALUES
+  ('dropoff_fee', 15.00, 'Fee for drop-off service'),
+  ('pickup_fee', 15.00, 'Fee for pick-up service');

@@ -12,6 +12,7 @@ import staysRoutes from './routes/stays.js'
 import billsRoutes from './routes/bills.js'
 import paymentsRoutes from './routes/payments.js'
 import ratesRoutes from './routes/rates.js'
+import settingsRoutes from './routes/settings.js'
 import analyticsRoutes from './routes/analytics.js'
 import uploadRoutes from './routes/upload.js'
 
@@ -42,6 +43,7 @@ app.use('/api/stays', staysRoutes)
 app.use('/api/bills', billsRoutes)
 app.use('/api/payments', paymentsRoutes)
 app.use('/api/rates', ratesRoutes)
+app.use('/api/settings', settingsRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/upload', uploadRoutes)
 

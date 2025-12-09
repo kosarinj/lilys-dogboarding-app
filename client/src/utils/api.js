@@ -33,6 +33,13 @@ export const ratesAPI = {
   update: (id, data) => api.put(`/rates/${id}`, data)
 }
 
+// Settings API
+export const settingsAPI = {
+  getAll: () => api.get('/settings'),
+  getByKey: (key) => api.get(`/settings/${key}`),
+  update: (key, data) => api.put(`/settings/${key}`, data)
+}
+
 // Stays API
 export const staysAPI = {
   getAll: () => api.get('/stays'),
