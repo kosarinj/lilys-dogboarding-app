@@ -40,11 +40,11 @@ router.get('/:id', async (req, res) => {
 // POST /api/dogs
 router.post('/', async (req, res) => {
   try {
-    const { customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions } = req.body
+    const { customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions, photo_url } = req.body
     const result = await query(
-      `INSERT INTO dogs (customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions]
+      `INSERT INTO dogs (customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions, photo_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [customer_id, name, breed, age, size, food_preferences, behavioral_notes, special_instructions, photo_url]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -56,12 +56,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, breed, age, size, food_preferences, behavioral_notes, special_instructions } = req.body
+    const { name, breed, age, size, food_preferences, behavioral_notes, special_instructions, photo_url } = req.body
     const result = await query(
       `UPDATE dogs SET name = $1, breed = $2, age = $3, size = $4, food_preferences = $5,
-       behavioral_notes = $6, special_instructions = $7, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8 RETURNING *`,
-      [name, breed, age, size, food_preferences, behavioral_notes, special_instructions, id]
+       behavioral_notes = $6, special_instructions = $7, photo_url = $8, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9 RETURNING *`,
+      [name, breed, age, size, food_preferences, behavioral_notes, special_instructions, photo_url, id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Dog not found' })

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import Dashboard from '../components/admin/Dashboard'
 import CustomersManager from '../components/admin/CustomersManager'
 import DogsManager from '../components/admin/DogsManager'
@@ -6,31 +6,71 @@ import StaysManager from '../components/admin/StaysManager'
 import BillingManager from '../components/admin/BillingManager'
 import RatesConfig from '../components/admin/RatesConfig'
 import Analytics from '../components/admin/Analytics'
+import ThemeSwitcher from '../components/admin/ThemeSwitcher'
+import './AdminPage.css'
 
 function AdminPage() {
+  const location = useLocation()
+
+  const isActive = (path) => {
+    return location.pathname === path
+  }
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="admin-layout">
       {/* Sidebar Navigation */}
-      <nav style={{
-        width: '250px',
-        backgroundColor: '#2c3e50',
-        color: 'white',
-        padding: '20px'
-      }}>
-        <h2 style={{ marginBottom: '30px' }}>Lily's Dog Boarding</h2>
-        <ul style={{ listStyle: 'none' }}>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/dashboard" style={{ color: 'white', textDecoration: 'none' }}>Dashboard</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/customers" style={{ color: 'white', textDecoration: 'none' }}>Customers</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/dogs" style={{ color: 'white', textDecoration: 'none' }}>Dogs</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/stays" style={{ color: 'white', textDecoration: 'none' }}>Stays</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/billing" style={{ color: 'white', textDecoration: 'none' }}>Billing</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/rates" style={{ color: 'white', textDecoration: 'none' }}>Rates</a></li>
-          <li style={{ marginBottom: '10px' }}><a href="/admin/analytics" style={{ color: 'white', textDecoration: 'none' }}>Analytics</a></li>
+      <nav className="sidebar">
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">🐕 Lily's Dog Boarding</h2>
+        </div>
+        <ul className="sidebar-menu">
+          <li>
+            <Link to="/admin/dashboard" className={`menu-item ${isActive('/admin/dashboard') ? 'active' : ''}`}>
+              <span className="menu-icon">📊</span>
+              <span>Dashboard</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/customers" className={`menu-item ${isActive('/admin/customers') ? 'active' : ''}`}>
+              <span className="menu-icon">👥</span>
+              <span>Customers</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/dogs" className={`menu-item ${isActive('/admin/dogs') ? 'active' : ''}`}>
+              <span className="menu-icon">🐕</span>
+              <span>Dogs</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/stays" className={`menu-item ${isActive('/admin/stays') ? 'active' : ''}`}>
+              <span className="menu-icon">📅</span>
+              <span>Stays</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/billing" className={`menu-item ${isActive('/admin/billing') ? 'active' : ''}`}>
+              <span className="menu-icon">💳</span>
+              <span>Billing</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/rates" className={`menu-item ${isActive('/admin/rates') ? 'active' : ''}`}>
+              <span className="menu-icon">💰</span>
+              <span>Rates</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/analytics" className={`menu-item ${isActive('/admin/analytics') ? 'active' : ''}`}>
+              <span className="menu-icon">📈</span>
+              <span>Analytics</span>
+            </Link>
+          </li>
         </ul>
       </nav>
 
       {/* Main Content */}
-      <div style={{ flex: 1, padding: '30px' }}>
+      <div className="main-content">
         <Routes>
           <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -41,6 +81,7 @@ function AdminPage() {
           <Route path="/rates" element={<RatesConfig />} />
           <Route path="/analytics" element={<Analytics />} />
         </Routes>
+        <ThemeSwitcher />
       </div>
     </div>
   )

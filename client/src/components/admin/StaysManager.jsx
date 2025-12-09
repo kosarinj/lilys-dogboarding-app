@@ -1,8 +1,379 @@
+import { useState, useEffect } from 'react'
+import { staysAPI, dogsAPI } from '../../utils/api'
+import './admin.css'
+
 function StaysManager() {
+  const [stays, setStays] = useState([])
+  const [dogs, setDogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editingStay, setEditingStay] = useState(null)
+  const [formData, setFormData] = useState({
+    dog_id: '',
+    check_in_date: '',
+    check_out_date: '',
+    rate_type: 'regular',
+    notes: '',
+    status: 'upcoming',
+    requires_dropoff: false,
+    requires_pickup: false
+  })
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [staysRes, dogsRes] = await Promise.all([
+        staysAPI.getAll(),
+        dogsAPI.getAll()
+      ])
+      setStays(staysRes.data)
+      setDogs(dogsRes.data)
+      setError(null)
+    } catch (err) {
+      setError('Failed to load data. Please try again.')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      if (editingStay) {
+        await staysAPI.update(editingStay.id, formData)
+      } else {
+        await staysAPI.create(formData)
+      }
+
+      setFormData({
+        dog_id: '',
+        check_in_date: '',
+        check_out_date: '',
+        rate_type: 'regular',
+        notes: '',
+        status: 'upcoming',
+        requires_dropoff: false,
+        requires_pickup: false
+      })
+      setShowForm(false)
+      setEditingStay(null)
+      loadData()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save stay. Please try again.')
+      console.error(err)
+    }
+  }
+
+  const handleEdit = (stay) => {
+    setEditingStay(stay)
+    setFormData({
+      dog_id: stay.dog_id,
+      check_in_date: stay.check_in_date.split('T')[0],
+      check_out_date: stay.check_out_date.split('T')[0],
+      rate_type: stay.rate_type,
+      notes: stay.notes || '',
+      status: stay.status,
+      requires_dropoff: stay.requires_dropoff || false,
+      requires_pickup: stay.requires_pickup || false
+    })
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this stay?')) return
+    try {
+      await staysAPI.delete(id)
+      loadData()
+    } catch (err) {
+      setError('Failed to delete stay.')
+      console.error(err)
+    }
+  }
+
+  const handleCancel = () => {
+    setFormData({
+      dog_id: '',
+      check_in_date: '',
+      check_out_date: '',
+      rate_type: 'regular',
+      notes: '',
+      status: 'upcoming',
+      requires_dropoff: false,
+      requires_pickup: false
+    })
+    setShowForm(false)
+    setEditingStay(null)
+  }
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      upcoming: { class: 'badge-small', text: 'Upcoming' },
+      active: { class: 'badge-medium', text: 'Active' },
+      completed: { class: 'badge-large', text: 'Completed' },
+      cancelled: { class: 'badge-large', text: 'Cancelled' }
+    }
+    return badges[status] || badges.upcoming
+  }
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount)
+  }
+
+  if (loading) return <div className="loading-state">Loading stays...</div>
+
   return (
     <div>
-      <h1>Stays</h1>
-      <p style={{ color: '#666', marginTop: '10px' }}>Track boarding stays and schedules</p>
+      <div className="admin-header">
+        <h1>Stays & Bookings</h1>
+        {!showForm && (
+          <button onClick={() => setShowForm(true)} className="btn btn-primary">
+            + Book Stay
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="error-state">
+          {error}
+        </div>
+      )}
+
+      {dogs.length === 0 && !showForm && (
+        <div className="error-state" style={{ background: '#fff4e6', border: '1px solid #ffe0b2', color: '#e67e22' }}>
+          ⚠️ Please add dogs first before booking stays.
+        </div>
+      )}
+
+      {showForm && (
+        <div className="form-card">
+          <h2>{editingStay ? 'Edit Stay' : 'Book New Stay'}</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Dog *</label>
+              <select
+                className="form-select"
+                value={formData.dog_id}
+                onChange={(e) => setFormData({ ...formData, dog_id: e.target.value })}
+                required
+              >
+                <option value="">Select dog...</option>
+                {dogs.map(dog => (
+                  <option key={dog.id} value={dog.id}>
+                    {dog.name} ({dog.customer_name}) - {dog.size}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="form-group">
+                <label className="form-label">Check-In Date *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.check_in_date}
+                  onChange={(e) => setFormData({ ...formData, check_in_date: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Check-Out Date *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.check_out_date}
+                  onChange={(e) => setFormData({ ...formData, check_out_date: e.target.value })}
+                  required
+                  min={formData.check_in_date}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="form-group">
+                <label className="form-label">Rate Type *</label>
+                <select
+                  className="form-select"
+                  value={formData.rate_type}
+                  onChange={(e) => setFormData({ ...formData, rate_type: e.target.value })}
+                  required
+                >
+                  <option value="regular">Regular Rate</option>
+                  <option value="holiday">Holiday Rate</option>
+                </select>
+              </div>
+
+              {editingStay && (
+                <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Additional Services</label>
+              <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.requires_dropoff}
+                    onChange={(e) => setFormData({ ...formData, requires_dropoff: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span>Drop-off ($15)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.requires_pickup}
+                    onChange={(e) => setFormData({ ...formData, requires_pickup: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span>Pick-up ($15)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea
+                className="form-textarea"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows="3"
+                placeholder="Any special instructions for this stay..."
+              />
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="btn btn-success">
+                {editingStay ? '✓ Update Stay' : '✓ Book Stay'}
+              </button>
+              <button type="button" onClick={handleCancel} className="btn btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="data-table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Photo</th>
+              <th>Dog</th>
+              <th>Owner</th>
+              <th>Check-In</th>
+              <th>Check-Out</th>
+              <th>Days</th>
+              <th>Rate</th>
+              <th>Services</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stays.length === 0 ? (
+              <tr>
+                <td colSpan="11">
+                  <div className="empty-state">
+                    <div className="empty-state-icon">📅</div>
+                    <div className="empty-state-text">No stays booked yet</div>
+                    <div className="empty-state-subtext">Click "Book Stay" to schedule your first boarding</div>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              stays.map((stay) => {
+                const statusBadge = getStatusBadge(stay.status)
+                const services = []
+                if (stay.requires_dropoff) services.push('Drop-off')
+                if (stay.requires_pickup) services.push('Pick-up')
+
+                return (
+                  <tr key={stay.id}>
+                    <td>
+                      {stay.dog_photo_url ? (
+                        <img
+                          src={`http://localhost:5000${stay.dog_photo_url}`}
+                          alt={stay.dog_name}
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }}
+                        />
+                      ) : (
+                        <div style={{ width: '50px', height: '50px', background: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                          🐕
+                        </div>
+                      )}
+                    </td>
+                    <td><strong>{stay.dog_name}</strong></td>
+                    <td>{stay.customer_name}</td>
+                    <td>{formatDate(stay.check_in_date)}</td>
+                    <td>{formatDate(stay.check_out_date)}</td>
+                    <td>{stay.days_count} days</td>
+                    <td>{stay.rate_type === 'holiday' ? '🎄 Holiday' : 'Regular'}</td>
+                    <td>
+                      {services.length > 0 ? (
+                        <div style={{ fontSize: '12px' }}>
+                          {services.map((service, i) => (
+                            <div key={i}>✓ {service}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#95a5a6' }}>-</span>
+                      )}
+                    </td>
+                    <td><strong>{formatCurrency(stay.total_cost)}</strong></td>
+                    <td>
+                      <span className={`badge ${statusBadge.class}`}>
+                        {statusBadge.text}
+                      </span>
+                    </td>
+                    <td>
+                      <button onClick={() => handleEdit(stay)} className="btn btn-edit">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(stay.id)} className="btn btn-delete">
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

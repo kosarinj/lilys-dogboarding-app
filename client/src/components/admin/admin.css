@@ -1,0 +1,258 @@
+/* Admin Panel Styles */
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.admin-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--theme-gradient, linear-gradient(135deg, #f472b6 0%, #ec4899 100%));
+  color: white;
+  box-shadow: 0 4px 6px var(--theme-shadow, rgba(244, 114, 182, 0.25));
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px var(--theme-shadow-hover, rgba(244, 114, 182, 0.35));
+}
+
+.btn-success {
+  background: var(--theme-gradient, linear-gradient(135deg, #f472b6 0%, #ec4899 100%));
+  color: white;
+}
+
+.btn-success:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: #ecf0f1;
+  color: #7f8c8d;
+}
+
+.btn-secondary:hover {
+  background: #d5dbdd;
+}
+
+.btn-danger {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c0392b;
+}
+
+.btn-edit {
+  background: #3498db;
+  color: white;
+  padding: 6px 14px;
+  font-size: 13px;
+  margin-right: 8px;
+}
+
+.btn-edit:hover {
+  background: #2980b9;
+}
+
+.btn-delete {
+  background: #e74c3c;
+  color: white;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.btn-delete:hover {
+  background: #c0392b;
+}
+
+/* Form Card */
+.form-card {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e8e8e8;
+}
+
+.form-card h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+/* Form Fields */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #34495e;
+  font-size: 14px;
+}
+
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--theme-primary, #f472b6);
+  box-shadow: 0 0 0 3px var(--theme-focus, rgba(244, 114, 182, 0.1));
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+/* Table */
+.data-table-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e8e8e8;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table thead {
+  background: var(--theme-gradient, linear-gradient(135deg, #f472b6 0%, #ec4899 100%));
+}
+
+.data-table thead th {
+  padding: 16px;
+  text-align: left;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-table thead th:last-child {
+  text-align: right;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table tbody td {
+  padding: 16px;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.data-table tbody td:last-child {
+  text-align: right;
+}
+
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: #95a5a6;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  opacity: 0.3;
+}
+
+.empty-state-text {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #7f8c8d;
+}
+
+.empty-state-subtext {
+  font-size: 14px;
+  color: #bdc3c7;
+}
+
+/* Loading and Error States */
+.loading-state {
+  padding: 40px;
+  text-align: center;
+  color: var(--theme-primary, #f472b6);
+  font-size: 16px;
+}
+
+.error-state {
+  padding: 20px;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+  margin-bottom: 20px;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-small {
+  background: #e8f4fd;
+  color: #2e86de;
+}
+
+.badge-medium {
+  background: #fff4e6;
+  color: #f39c12;
+}
+
+.badge-large {
+  background: #ffeaa7;
+  color: #d63031;
+}

@@ -1,8 +1,274 @@
+import { useState, useEffect } from 'react'
+import { ratesAPI } from '../../utils/api'
+import './admin.css'
+
 function RatesConfig() {
+  const [rates, setRates] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [editingRate, setEditingRate] = useState(null)
+  const [editValue, setEditValue] = useState('')
+
+  useEffect(() => {
+    loadRates()
+  }, [])
+
+  const loadRates = async () => {
+    try {
+      setLoading(true)
+      const response = await ratesAPI.getAll()
+      setRates(response.data)
+      setError(null)
+    } catch (err) {
+      setError('Failed to load rates. Please try again.')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (rate) => {
+    setEditingRate(rate.id)
+    setEditValue(rate.price_per_day)
+  }
+
+  const handleSave = async (rateId) => {
+    try {
+      await ratesAPI.update(rateId, { price_per_day: parseFloat(editValue) })
+      setEditingRate(null)
+      setEditValue('')
+      loadRates()
+    } catch (err) {
+      setError('Failed to update rate. Please try again.')
+      console.error(err)
+    }
+  }
+
+  const handleCancel = () => {
+    setEditingRate(null)
+    setEditValue('')
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount)
+  }
+
+  const getRatesByType = (rateType) => {
+    return rates.filter(rate => rate.rate_type === rateType)
+  }
+
+  const getRateForSize = (ratesList, size) => {
+    return ratesList.find(rate => rate.dog_size === size)
+  }
+
+  if (loading) return <div className="loading-state">Loading rates...</div>
+
+  const regularRates = getRatesByType('regular')
+  const holidayRates = getRatesByType('holiday')
+
   return (
     <div>
-      <h1>Rate Configuration</h1>
-      <p style={{ color: '#666', marginTop: '10px' }}>Set boarding rates by dog size and date type</p>
+      <div className="admin-header">
+        <div>
+          <h1>Rate Configuration</h1>
+          <p style={{ color: '#666', marginTop: '8px', fontSize: '14px' }}>
+            Set daily boarding rates by dog size and season
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-state">
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        {/* Regular Rates Card */}
+        <div className="form-card">
+          <h2 style={{ marginBottom: '20px', fontSize: '18px' }}>Regular Rates</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {['small', 'medium', 'large'].map((size) => {
+              const rate = getRateForSize(regularRates, size)
+              if (!rate) return null
+
+              return (
+                <div key={rate.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  background: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50' }}>
+                      {size.charAt(0).toUpperCase() + size.slice(1)} Dogs
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                      {size === 'small' && '0-25 lbs'}
+                      {size === 'medium' && '26-60 lbs'}
+                      {size === 'large' && '60+ lbs'}
+                    </div>
+                  </div>
+
+                  {editingRate === rate.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        style={{
+                          width: '80px',
+                          padding: '6px 10px',
+                          fontSize: '16px',
+                          border: '2px solid var(--theme-primary, #f472b6)',
+                          borderRadius: '6px'
+                        }}
+                        autoFocus
+                      />
+                      <button onClick={() => handleSave(rate.id)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                        Save
+                      </button>
+                      <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                        {formatCurrency(rate.price_per_day)}
+                        <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / day</span>
+                      </div>
+                      <button onClick={() => handleEdit(rate)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Holiday Rates Card */}
+        <div className="form-card">
+          <h2 style={{ marginBottom: '20px', fontSize: '18px' }}>🎄 Holiday Rates</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {['small', 'medium', 'large'].map((size) => {
+              const rate = getRateForSize(holidayRates, size)
+              if (!rate) return null
+
+              return (
+                <div key={rate.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  background: '#fff4e6',
+                  borderRadius: '8px',
+                  border: '1px solid #ffe0b2'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50' }}>
+                      {size.charAt(0).toUpperCase() + size.slice(1)} Dogs
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                      {size === 'small' && '0-25 lbs'}
+                      {size === 'medium' && '26-60 lbs'}
+                      {size === 'large' && '60+ lbs'}
+                    </div>
+                  </div>
+
+                  {editingRate === rate.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        style={{
+                          width: '80px',
+                          padding: '6px 10px',
+                          fontSize: '16px',
+                          border: '2px solid var(--theme-primary, #f472b6)',
+                          borderRadius: '6px'
+                        }}
+                        autoFocus
+                      />
+                      <button onClick={() => handleSave(rate.id)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                        Save
+                      </button>
+                      <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                        {formatCurrency(rate.price_per_day)}
+                        <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / day</span>
+                      </div>
+                      <button onClick={() => handleEdit(rate)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Services Info */}
+      <div className="form-card" style={{ marginTop: '24px' }}>
+        <h2 style={{ marginBottom: '16px', fontSize: '18px' }}>Additional Services</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{
+            padding: '16px',
+            background: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e8e8e8'
+          }}>
+            <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+              🚗 Drop-off Service
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+              $15.00
+              <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+              Optional service for customer convenience
+            </div>
+          </div>
+
+          <div style={{
+            padding: '16px',
+            background: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e8e8e8'
+          }}>
+            <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+              🏠 Pick-up Service
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+              $15.00
+              <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / one-time</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+              Optional service for customer convenience
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
