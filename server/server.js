@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { runMigrations } from './migrations.js'
 
 // Import routes
 import authRoutes from './routes/auth.js'
@@ -69,7 +70,10 @@ app.use((err, req, res, next) => {
   })
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`)
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`)
+
+  // Run database migrations
+  await runMigrations()
 })
