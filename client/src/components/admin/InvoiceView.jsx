@@ -35,6 +35,29 @@ function InvoiceView({ bill, onClose }) {
     window.print()
   }
 
+  const handleCopyLink = () => {
+    const shareableLink = `${window.location.origin}/bill/${bill.bill_code}`
+    navigator.clipboard.writeText(shareableLink).then(() => {
+      alert('Link copied! You can now share this with your customer via text or email.')
+    })
+  }
+
+  const handleSendBill = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bills/${bill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' })
+      })
+      if (response.ok) {
+        bill.status = 'sent'
+        handleCopyLink()
+      }
+    } catch (err) {
+      alert('Failed to mark bill as sent')
+    }
+  }
+
   if (!bill || !bill.items) return null
 
   // Group items by dog
@@ -81,14 +104,48 @@ function InvoiceView({ bill, onClose }) {
     <div style={{ minHeight: '100vh', background: '#f5f5f5', padding: '20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         {/* Action Buttons */}
-        <div className="no-print" style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
+        <div className="no-print" style={{ marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button onClick={onClose} className="btn btn-secondary">
             ← Back to Bills
           </button>
           <button onClick={handlePrint} className="btn btn-primary">
             🖨️ Print Invoice
           </button>
+          {bill.status === 'draft' ? (
+            <button onClick={handleSendBill} className="btn btn-success">
+              📤 Send Bill (Get Link)
+            </button>
+          ) : (
+            <button onClick={handleCopyLink} className="btn btn-primary">
+              🔗 Copy Shareable Link
+            </button>
+          )}
         </div>
+
+        {/* Shareable Link Display */}
+        {bill.status !== 'draft' && (
+          <div className="no-print" style={{
+            marginBottom: '20px',
+            padding: '16px',
+            background: '#f0f9ff',
+            border: '2px solid #0ea5e9',
+            borderRadius: '8px'
+          }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#0369a1', marginBottom: '8px' }}>
+              Shareable Link for Customer:
+            </div>
+            <div style={{
+              padding: '10px',
+              background: 'white',
+              borderRadius: '6px',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              wordBreak: 'break-all'
+            }}>
+              {window.location.origin}/bill/{bill.bill_code}
+            </div>
+          </div>
+        )}
 
         {/* Invoice Card */}
         <div style={{

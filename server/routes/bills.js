@@ -170,7 +170,7 @@ router.post('/', async (req, res) => {
       INSERT INTO bills (customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, paid_amount, status, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, 0, 'sent', notes])
+    `, [customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, 0, 'draft', notes])
 
     const bill = billResult.rows[0]
 
