@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { staysAPI, dogsAPI } from '../../utils/api'
+import { staysAPI, dogsAPI, settingsAPI } from '../../utils/api'
 import './admin.css'
 
 function StaysManager() {
   const [stays, setStays] = useState([])
   const [dogs, setDogs] = useState([])
+  const [fees, setFees] = useState({ dropoff: 15, pickup: 15 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -31,12 +32,24 @@ function StaysManager() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [staysRes, dogsRes] = await Promise.all([
+      const [staysRes, dogsRes, settingsRes] = await Promise.all([
         staysAPI.getAll(),
-        dogsAPI.getAll()
+        dogsAPI.getAll(),
+        settingsAPI.getAll()
       ])
       setStays(staysRes.data)
       setDogs(dogsRes.data)
+
+      // Extract fees from settings
+      const settings = settingsRes.data
+      const dropoffSetting = settings.find(s => s.setting_key === 'dropoff_fee')
+      const pickupSetting = settings.find(s => s.setting_key === 'pickup_fee')
+
+      setFees({
+        dropoff: dropoffSetting ? parseFloat(dropoffSetting.setting_value) : 15,
+        pickup: pickupSetting ? parseFloat(pickupSetting.setting_value) : 15
+      })
+
       setError(null)
     } catch (err) {
       setError('Failed to load data. Please try again.')
@@ -317,7 +330,7 @@ function StaysManager() {
                     onChange={(e) => setFormData({ ...formData, requires_dropoff: e.target.checked })}
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
-                  <span>Drop-off ($15)</span>
+                  <span>Drop-off (${fees.dropoff.toFixed(2)})</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
@@ -326,7 +339,7 @@ function StaysManager() {
                     onChange={(e) => setFormData({ ...formData, requires_pickup: e.target.checked })}
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
-                  <span>Pick-up ($15)</span>
+                  <span>Pick-up (${fees.pickup.toFixed(2)})</span>
                 </label>
               </div>
             </div>
