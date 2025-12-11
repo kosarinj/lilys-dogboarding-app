@@ -13,7 +13,11 @@ function StaysManager() {
     dog_id: '',
     check_in_date: '',
     check_out_date: '',
+    check_in_time: '',
+    check_out_time: '',
+    stay_type: 'boarding',
     rate_type: 'regular',
+    special_price: '',
     notes: '',
     status: 'upcoming',
     requires_dropoff: false,
@@ -55,7 +59,11 @@ function StaysManager() {
         dog_id: '',
         check_in_date: '',
         check_out_date: '',
+        check_in_time: '',
+        check_out_time: '',
+        stay_type: 'boarding',
         rate_type: 'regular',
+        special_price: '',
         notes: '',
         status: 'upcoming',
         requires_dropoff: false,
@@ -76,7 +84,11 @@ function StaysManager() {
       dog_id: stay.dog_id,
       check_in_date: stay.check_in_date.split('T')[0],
       check_out_date: stay.check_out_date.split('T')[0],
+      check_in_time: stay.check_in_time || '',
+      check_out_time: stay.check_out_time || '',
+      stay_type: stay.stay_type || 'boarding',
       rate_type: stay.rate_type,
+      special_price: stay.special_price || '',
       notes: stay.notes || '',
       status: stay.status,
       requires_dropoff: stay.requires_dropoff || false,
@@ -102,7 +114,11 @@ function StaysManager() {
       dog_id: '',
       check_in_date: '',
       check_out_date: '',
+      check_in_time: '',
+      check_out_time: '',
+      stay_type: 'boarding',
       rate_type: 'regular',
+      special_price: '',
       notes: '',
       status: 'upcoming',
       requires_dropoff: false,
@@ -210,6 +226,43 @@ function StaysManager() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div className="form-group">
+                <label className="form-label">Check-In Time</label>
+                <input
+                  type="time"
+                  className="form-input"
+                  value={formData.check_in_time}
+                  onChange={(e) => setFormData({ ...formData, check_in_time: e.target.value })}
+                  placeholder="e.g., 14:00"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Check-Out Time</label>
+                <input
+                  type="time"
+                  className="form-input"
+                  value={formData.check_out_time}
+                  onChange={(e) => setFormData({ ...formData, check_out_time: e.target.value })}
+                  placeholder="e.g., 11:00"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+              <div className="form-group">
+                <label className="form-label">Stay Type *</label>
+                <select
+                  className="form-select"
+                  value={formData.stay_type}
+                  onChange={(e) => setFormData({ ...formData, stay_type: e.target.value })}
+                  required
+                >
+                  <option value="boarding">Boarding</option>
+                  <option value="daycare">Daycare</option>
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">Rate Type *</label>
                 <select
                   className="form-select"
@@ -237,6 +290,21 @@ function StaysManager() {
                   </select>
                 </div>
               )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Special Price (Optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                className="form-input"
+                value={formData.special_price}
+                onChange={(e) => setFormData({ ...formData, special_price: e.target.value })}
+                placeholder="Override calculated price (e.g., 250.00)"
+              />
+              <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                Leave blank to use standard pricing. Enter a custom amount to override.
+              </p>
             </div>
 
             <div className="form-group">
