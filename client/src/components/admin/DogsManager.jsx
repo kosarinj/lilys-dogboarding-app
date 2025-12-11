@@ -14,6 +14,8 @@ function DogsManager() {
     name: '',
     breed: '',
     age: '',
+    age_months: '',
+    location: '',
     size: 'medium',
     food_preferences: '',
     behavioral_notes: '',
@@ -49,7 +51,8 @@ function DogsManager() {
     try {
       const submitData = {
         ...formData,
-        age: formData.age ? parseInt(formData.age) : null
+        age: formData.age ? parseInt(formData.age) : null,
+        age_months: formData.age_months ? parseInt(formData.age_months) : null
       }
 
       if (editingDog) {
@@ -63,10 +66,13 @@ function DogsManager() {
         name: '',
         breed: '',
         age: '',
+        age_months: '',
+        location: '',
         size: 'medium',
         food_preferences: '',
         behavioral_notes: '',
-        special_instructions: ''
+        special_instructions: '',
+        photo_url: ''
       })
       setShowForm(false)
       setEditingDog(null)
@@ -101,6 +107,8 @@ function DogsManager() {
       name: dog.name,
       breed: dog.breed || '',
       age: dog.age || '',
+      age_months: dog.age_months || '',
+      location: dog.location || '',
       size: dog.size,
       food_preferences: dog.food_preferences || '',
       behavioral_notes: dog.behavioral_notes || '',
@@ -128,6 +136,8 @@ function DogsManager() {
       name: '',
       breed: '',
       age: '',
+      age_months: '',
+      location: '',
       size: 'medium',
       food_preferences: '',
       behavioral_notes: '',
@@ -206,7 +216,7 @@ function DogsManager() {
               {formData.photo_url && (
                 <div style={{ marginTop: '12px' }}>
                   <img
-                    src={`http://localhost:5000${formData.photo_url}`}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${formData.photo_url}`}
                     alt="Dog preview"
                     style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e8e8e8' }}
                   />
@@ -239,7 +249,7 @@ function DogsManager() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
               <div className="form-group">
                 <label className="form-label">Age (years)</label>
                 <input
@@ -250,6 +260,19 @@ function DogsManager() {
                   min="0"
                   max="30"
                   placeholder="e.g., 3"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Months</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.age_months}
+                  onChange={(e) => setFormData({ ...formData, age_months: e.target.value })}
+                  min="0"
+                  max="11"
+                  placeholder="e.g., 6"
                 />
               </div>
 
@@ -266,6 +289,19 @@ function DogsManager() {
                   <option value="large">Large (60+ lbs)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Location</label>
+              <select
+                className="form-select"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              >
+                <option value="">Select location...</option>
+                <option value="New York">New York</option>
+                <option value="Connecticut">Connecticut</option>
+              </select>
             </div>
 
             <div className="form-group">
@@ -343,7 +379,7 @@ function DogsManager() {
                   <td>
                     {dog.photo_url ? (
                       <img
-                        src={`http://localhost:5000${dog.photo_url}`}
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${dog.photo_url}`}
                         alt={dog.name}
                         style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }}
                       />
