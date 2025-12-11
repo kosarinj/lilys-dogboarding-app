@@ -101,7 +101,7 @@ function RatesConfig() {
         <div>
           <h1>Rate Configuration</h1>
           <p style={{ color: '#666', marginTop: '8px', fontSize: '14px' }}>
-            Set daily boarding rates by dog size and season
+            Set daily rates by dog size and season (applies to both Boarding and Daycare)
           </p>
         </div>
       </div>
@@ -112,10 +112,31 @@ function RatesConfig() {
         </div>
       )}
 
+      {/* Info Banner */}
+      <div style={{
+        background: '#e3f2fd',
+        border: '1px solid #90caf9',
+        borderRadius: '8px',
+        padding: '16px',
+        marginBottom: '24px',
+        display: 'flex',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '20px' }}>ℹ️</span>
+        <div>
+          <strong style={{ color: '#1976d2' }}>Rate Structure</strong>
+          <p style={{ color: '#555', fontSize: '14px', marginTop: '4px' }}>
+            These rates apply to both <strong>Boarding</strong> and <strong>Daycare</strong> stays.
+            The stay type is selected when booking, and pricing is calculated based on dog size and whether it's a regular or holiday period.
+          </p>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Regular Rates Card */}
         <div className="form-card">
-          <h2 style={{ marginBottom: '20px', fontSize: '18px' }}>Regular Rates</h2>
+          <h2 style={{ marginBottom: '20px', fontSize: '18px' }}>📅 Regular Rates</h2>
+          <p style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '16px' }}>Standard daily rates for boarding and daycare</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {['small', 'medium', 'large'].map((size) => {
               const rate = getRateForSize(regularRates, size)
@@ -186,6 +207,7 @@ function RatesConfig() {
         {/* Holiday Rates Card */}
         <div className="form-card">
           <h2 style={{ marginBottom: '20px', fontSize: '18px' }}>🎄 Holiday Rates</h2>
+          <p style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '16px' }}>Premium rates for peak holiday periods</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {['small', 'medium', 'large'].map((size) => {
               const rate = getRateForSize(holidayRates, size)

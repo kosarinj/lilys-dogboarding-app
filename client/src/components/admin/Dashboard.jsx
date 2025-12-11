@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { customersAPI, staysAPI, billsAPI } from '../../utils/api'
 import './admin.css'
 
@@ -125,33 +126,39 @@ function Dashboard() {
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '16px' }}>Stay Summary</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
               <span style={{ color: '#7f8c8d' }}>Active</span>
               <strong style={{ color: '#27ae60' }}>{stats.activeStays}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+            </Link>
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
               <span style={{ color: '#7f8c8d' }}>Upcoming</span>
               <strong style={{ color: '#3498db' }}>{stats.upcomingStays}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+            </Link>
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
               <span style={{ color: '#7f8c8d' }}>Completed</span>
               <strong style={{ color: '#95a5a6' }}>{stats.completedStays}</strong>
-            </div>
+            </Link>
           </div>
         </div>
 
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '16px' }}>Quick Actions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <a href="#/admin/stays" style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', color: '#2c3e50', fontWeight: '500', textAlign: 'center', border: '1px solid #e8e8e8' }}>
+            <Link to="/admin/stays" className="btn btn-primary" style={{ padding: '12px', borderRadius: '8px', textDecoration: 'none', fontWeight: '500', textAlign: 'center' }}>
               + Book New Stay
-            </a>
-            <a href="#/admin/billing" style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', color: '#2c3e50', fontWeight: '500', textAlign: 'center', border: '1px solid #e8e8e8' }}>
+            </Link>
+            <Link to="/admin/billing" className="btn btn-secondary" style={{ padding: '12px', borderRadius: '8px', textDecoration: 'none', fontWeight: '500', textAlign: 'center' }}>
               Create Bill
-            </a>
-            <a href="#/admin/customers" style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', color: '#2c3e50', fontWeight: '500', textAlign: 'center', border: '1px solid #e8e8e8' }}>
+            </Link>
+            <Link to="/admin/customers" className="btn btn-secondary" style={{ padding: '12px', borderRadius: '8px', textDecoration: 'none', fontWeight: '500', textAlign: 'center' }}>
               Add Customer
-            </a>
+            </Link>
           </div>
         </div>
       </div>
