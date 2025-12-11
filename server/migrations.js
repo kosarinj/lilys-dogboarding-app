@@ -67,6 +67,28 @@ export async function runMigrations() {
     `)
     console.log('✓ Added special_price to stays')
 
+    // Add stay_type to rates table (boarding vs daycare)
+    await query(`
+      ALTER TABLE rates ADD COLUMN IF NOT EXISTS service_type stay_type DEFAULT 'boarding'
+    `)
+    console.log('✓ Added service_type to rates')
+
+    // Create daycare rates by duplicating existing rates
+    // First check if daycare rates already exist
+    const daycareCheck = await query(`SELECT COUNT(*) as count FROM rates WHERE service_type = 'daycare'`)
+    if (parseInt(daycareCheck.rows[0].count) === 0) {
+      await query(`
+        INSERT INTO rates (dog_size, rate_type, service_type, price_per_day, created_at, updated_at)
+        SELECT dog_size, rate_type, 'daycare'::stay_type, price_per_day * 0.7, created_at, updated_at
+        FROM rates
+        WHERE service_type = 'boarding'
+        ON CONFLICT DO NOTHING
+      `)
+      console.log('✓ Created daycare rates (70% of boarding rates)')
+    } else {
+      console.log('✓ Daycare rates already exist')
+    }
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

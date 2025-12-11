@@ -75,14 +75,14 @@ router.post('/', async (req, res) => {
     }
     const dog_size = dogResult.rows[0].size
 
-    // Get daily rate
+    // Get daily rate based on dog size, rate type, and stay type
     const rateResult = await query(
-      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2',
-      [dog_size, rate_type]
+      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+      [dog_size, rate_type, stay_type || 'boarding']
     )
 
     if (rateResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Rate not found for this dog size and rate type' })
+      return res.status(404).json({ error: 'Rate not found for this dog size, rate type, and stay type' })
     }
 
     const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
@@ -137,10 +137,10 @@ router.put('/:id', async (req, res) => {
     const dogResult = await query('SELECT size FROM dogs WHERE id = $1', [dog_id])
     const dog_size = dogResult.rows[0].size
 
-    // Get daily rate
+    // Get daily rate based on dog size, rate type, and stay type
     const rateResult = await query(
-      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2',
-      [dog_size, rate_type]
+      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+      [dog_size, rate_type, stay_type || 'boarding']
     )
     const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
 
