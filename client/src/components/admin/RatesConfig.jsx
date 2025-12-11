@@ -523,6 +523,8 @@ function RatesConfig() {
           ))}
         </div>
       </div>
+      </div>
+      </div>
     </div>
   )
 }
