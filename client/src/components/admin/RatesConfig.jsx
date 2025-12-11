@@ -192,7 +192,6 @@ function RatesConfig() {
               )
             })}
           </div>
-        </div>
 
           {/* Boarding Holiday Rates */}
           <div className="form-card">
