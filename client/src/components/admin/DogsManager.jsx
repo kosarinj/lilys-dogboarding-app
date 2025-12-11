@@ -17,6 +17,7 @@ function DogsManager() {
     age_months: '',
     location: '',
     size: 'medium',
+    status: 'active',
     food_preferences: '',
     behavioral_notes: '',
     special_instructions: '',
@@ -69,6 +70,7 @@ function DogsManager() {
         age_months: '',
         location: '',
         size: 'medium',
+        status: 'active',
         food_preferences: '',
         behavioral_notes: '',
         special_instructions: '',
@@ -110,6 +112,7 @@ function DogsManager() {
       age_months: dog.age_months || '',
       location: dog.location || '',
       size: dog.size,
+      status: dog.status || 'active',
       food_preferences: dog.food_preferences || '',
       behavioral_notes: dog.behavioral_notes || '',
       special_instructions: dog.special_instructions || '',
@@ -139,6 +142,7 @@ function DogsManager() {
       age_months: '',
       location: '',
       size: 'medium',
+      status: 'active',
       food_preferences: '',
       behavioral_notes: '',
       special_instructions: '',
@@ -305,6 +309,19 @@ function DogsManager() {
             </div>
 
             <div className="form-group">
+              <label className="form-label">Status *</label>
+              <select
+                className="form-select"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                required
+              >
+                <option value="active">Active</option>
+                <option value="deceased">Deceased ✝</option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Food Preferences</label>
               <textarea
                 className="form-textarea"
@@ -359,13 +376,14 @@ function DogsManager() {
               <th>Breed</th>
               <th>Age</th>
               <th>Size</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {dogs.length === 0 ? (
               <tr>
-                <td colSpan="7">
+                <td colSpan="8">
                   <div className="empty-state">
                     <div className="empty-state-icon">🐕</div>
                     <div className="empty-state-text">No dogs yet</div>
@@ -375,13 +393,13 @@ function DogsManager() {
               </tr>
             ) : (
               dogs.map((dog) => (
-                <tr key={dog.id}>
+                <tr key={dog.id} style={{ opacity: dog.status === 'deceased' ? 0.6 : 1 }}>
                   <td>
                     {dog.photo_url ? (
                       <img
                         src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${dog.photo_url}`}
                         alt={dog.name}
-                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }}
+                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', filter: dog.status === 'deceased' ? 'grayscale(100%)' : 'none' }}
                       />
                     ) : (
                       <div style={{ width: '50px', height: '50px', background: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
@@ -397,6 +415,33 @@ function DogsManager() {
                     <span className={`badge ${getSizeBadge(dog.size)}`}>
                       {dog.size.charAt(0).toUpperCase() + dog.size.slice(1)}
                     </span>
+                  </td>
+                  <td>
+                    {dog.status === 'deceased' ? (
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 12px',
+                        background: '#95a5a6',
+                        color: 'white',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        ✝ Deceased
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 12px',
+                        background: '#27ae60',
+                        color: 'white',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        ✓ Active
+                      </span>
+                    )}
                   </td>
                   <td>
                     <button onClick={() => handleEdit(dog)} className="btn btn-edit">

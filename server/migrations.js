@@ -89,6 +89,19 @@ export async function runMigrations() {
       console.log('✓ Daycare rates already exist')
     }
 
+    // Add status field to dogs table
+    await query(`
+      DO $$ BEGIN
+        CREATE TYPE dog_status AS ENUM ('active', 'deceased');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `)
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS status dog_status DEFAULT 'active'
+    `)
+    console.log('✓ Added status to dogs')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
