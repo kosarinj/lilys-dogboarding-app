@@ -13,7 +13,7 @@ function generateBillCode() {
   return code
 }
 
-// GET /api/bills/unbilled/stays - Get completed stays without bills (must be before /:id)
+// GET /api/bills/unbilled/stays - Get active and completed stays without bills (must be before /:id)
 router.get('/unbilled/stays', async (req, res) => {
   try {
     const result = await query(`
@@ -22,7 +22,7 @@ router.get('/unbilled/stays', async (req, res) => {
       FROM stays s
       JOIN dogs d ON s.dog_id = d.id
       JOIN customers c ON d.customer_id = c.id
-      WHERE s.status = 'completed'
+      WHERE s.status IN ('active', 'completed')
         AND s.id NOT IN (SELECT stay_id FROM bill_items)
       ORDER BY c.name, s.check_out_date DESC
     `)
@@ -131,11 +131,11 @@ router.post('/', async (req, res) => {
     // Get stay details
     const staysResult = await query(`
       SELECT * FROM stays
-      WHERE id = ANY($1) AND status = 'completed'
+      WHERE id = ANY($1) AND status IN ('active', 'completed')
     `, [stay_ids])
 
     if (staysResult.rows.length === 0) {
-      return res.status(400).json({ error: 'No completed stays found' })
+      return res.status(400).json({ error: 'No active or completed stays found' })
     }
 
     const stays = staysResult.rows
