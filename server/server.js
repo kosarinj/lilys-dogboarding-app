@@ -33,8 +33,11 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+// Serve uploaded files from Railway volume in production, local directory in development
+const uploadsPath = process.env.NODE_ENV === 'production'
+  ? '/data/uploads'
+  : path.join(__dirname, 'uploads')
+app.use('/uploads', express.static(uploadsPath))
 
 // API Routes
 app.use('/api/auth', authRoutes)
