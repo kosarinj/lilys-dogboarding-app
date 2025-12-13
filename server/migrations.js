@@ -102,6 +102,18 @@ export async function runMigrations() {
     `)
     console.log('✓ Added status to dogs')
 
+    // Add photo_url field to dogs table
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS photo_url VARCHAR(500)
+    `)
+    console.log('✓ Added photo_url to dogs')
+
+    // Add age_entry_date to track when age was first recorded
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS age_entry_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `)
+    console.log('✓ Added age_entry_date to dogs for automatic age tracking')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

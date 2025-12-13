@@ -161,6 +161,36 @@ function DogsManager() {
     return badges[size] || 'badge-medium'
   }
 
+  // Calculate current age based on original age and time elapsed
+  const calculateCurrentAge = (originalAge, originalMonths, entryDate) => {
+    if (!originalAge && originalAge !== 0) return null
+
+    const entry = new Date(entryDate || Date.now())
+    const now = new Date()
+
+    // Calculate months elapsed since entry
+    const monthsElapsed = (now.getFullYear() - entry.getFullYear()) * 12 + (now.getMonth() - entry.getMonth())
+
+    // Calculate total months
+    const totalMonths = (parseInt(originalAge) * 12) + (parseInt(originalMonths) || 0) + monthsElapsed
+
+    const years = Math.floor(totalMonths / 12)
+    const months = totalMonths % 12
+
+    return { years, months }
+  }
+
+  const formatAge = (age, months, entryDate) => {
+    const currentAge = calculateCurrentAge(age, months, entryDate)
+    if (!currentAge) return '-'
+
+    const parts = []
+    if (currentAge.years > 0) parts.push(`${currentAge.years} year${currentAge.years !== 1 ? 's' : ''}`)
+    if (currentAge.months > 0) parts.push(`${currentAge.months} month${currentAge.months !== 1 ? 's' : ''}`)
+
+    return parts.length > 0 ? parts.join(' ') : '0 months'
+  }
+
   if (loading) return <div className="loading-state">Loading dogs...</div>
 
   return (
@@ -410,7 +440,7 @@ function DogsManager() {
                   <td><strong>{dog.name}</strong></td>
                   <td>{dog.customer_name}</td>
                   <td>{dog.breed || '-'}</td>
-                  <td>{dog.age ? `${dog.age} years` : '-'}</td>
+                  <td>{formatAge(dog.age, dog.age_months, dog.age_entry_date)}</td>
                   <td>
                     <span className={`badge ${getSizeBadge(dog.size)}`}>
                       {dog.size.charAt(0).toUpperCase() + dog.size.slice(1)}

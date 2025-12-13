@@ -204,11 +204,13 @@ function StaysManager() {
                 required
               >
                 <option value="">Select dog...</option>
-                {dogs.map(dog => (
-                  <option key={dog.id} value={dog.id}>
-                    {dog.name} ({dog.customer_name}) - {dog.size}
-                  </option>
-                ))}
+                {dogs
+                  .filter(dog => dog.status !== 'deceased')
+                  .map(dog => (
+                    <option key={dog.id} value={dog.id}>
+                      {dog.name} ({dog.customer_name}) - {dog.size}
+                    </option>
+                  ))}
               </select>
             </div>
 
