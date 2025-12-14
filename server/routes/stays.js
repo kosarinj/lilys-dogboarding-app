@@ -62,10 +62,19 @@ router.post('/', async (req, res) => {
     // Calculate days
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    const days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
-    if (days_count <= 0) {
-      return res.status(400).json({ error: 'Check-out must be after check-in' })
+    // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
+    // For boarding, check-out must be after check-in (at least 1 night)
+    if (stay_type === 'daycare') {
+      if (days_count === 0) {
+        days_count = 1 // Same day counts as 1 day for daycare
+      }
+    } else {
+      // Boarding requires at least 1 night
+      if (days_count <= 0) {
+        return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
+      }
     }
 
     // Get dog size to determine rate
@@ -131,7 +140,20 @@ router.put('/:id', async (req, res) => {
     // Calculate days
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    const days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+
+    // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
+    // For boarding, check-out must be after check-in (at least 1 night)
+    if (stay_type === 'daycare') {
+      if (days_count === 0) {
+        days_count = 1 // Same day counts as 1 day for daycare
+      }
+    } else {
+      // Boarding requires at least 1 night
+      if (days_count <= 0) {
+        return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
+      }
+    }
 
     // Get dog size
     const dogResult = await query('SELECT size FROM dogs WHERE id = $1', [dog_id])
