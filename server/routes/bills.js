@@ -20,7 +20,7 @@ function generateBillCode() {
   return code
 }
 
-// GET /api/bills/unbilled/stays - Get active and completed stays without bills (must be before /:id)
+// GET /api/bills/unbilled/stays - Get upcoming, active, and completed stays without bills (must be before /:id)
 router.get('/unbilled/stays', async (req, res) => {
   try {
     const result = await query(`
@@ -29,7 +29,7 @@ router.get('/unbilled/stays', async (req, res) => {
       FROM stays s
       JOIN dogs d ON s.dog_id = d.id
       JOIN customers c ON d.customer_id = c.id
-      WHERE s.status IN ('active', 'completed')
+      WHERE s.status IN ('upcoming', 'active', 'completed')
         AND s.id NOT IN (SELECT stay_id FROM bill_items)
       ORDER BY c.name, s.check_out_date DESC
     `)
