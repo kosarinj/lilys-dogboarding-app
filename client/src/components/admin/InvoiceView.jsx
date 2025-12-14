@@ -238,7 +238,7 @@ function InvoiceView({ bill, onClose }) {
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                   }}>
                     <img
-                      src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${dogGroup.items[0].dog_photo_url}`}
+                      src={dogGroup.items[0].dog_photo_url.startsWith('http') ? dogGroup.items[0].dog_photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${dogGroup.items[0].dog_photo_url}`}
                       alt={dogGroup.dog_name}
                       style={{
                         width: '100%',

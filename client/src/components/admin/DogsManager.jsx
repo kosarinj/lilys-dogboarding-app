@@ -250,7 +250,7 @@ function DogsManager() {
               {formData.photo_url && (
                 <div style={{ marginTop: '12px' }}>
                   <img
-                    src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${formData.photo_url}`}
+                    src={formData.photo_url.startsWith('http') ? formData.photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${formData.photo_url}`}
                     alt="Dog preview"
                     style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e8e8e8' }}
                   />
@@ -427,7 +427,7 @@ function DogsManager() {
                   <td>
                     {dog.photo_url ? (
                       <img
-                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${dog.photo_url}`}
+                        src={dog.photo_url.startsWith('http') ? dog.photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${dog.photo_url}`}
                         alt={dog.name}
                         style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', filter: dog.status === 'deceased' ? 'grayscale(100%)' : 'none' }}
                       />

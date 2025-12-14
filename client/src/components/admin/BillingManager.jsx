@@ -239,7 +239,7 @@ function BillingManager() {
                       />
                       {stay.dog_photo_url ? (
                         <img
-                          src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${stay.dog_photo_url}`}
+                          src={stay.dog_photo_url.startsWith('http') ? stay.dog_photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${stay.dog_photo_url}`}
                           alt={stay.dog_name}
                           style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }}
                         />
