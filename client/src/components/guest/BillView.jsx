@@ -39,17 +39,31 @@ function BillView({ billCode }) {
     // Check if dates are valid
     if (!start || !end) return 'Date not available'
 
-    // Parse dates as local time to avoid timezone shifting
-    const startDate = new Date(start + 'T00:00:00')
-    const endDate = new Date(end + 'T00:00:00')
+    // Handle both date strings (YYYY-MM-DD) and timestamps
+    const parseDate = (dateStr) => {
+      // If it's already a timestamp with time, just parse it
+      if (dateStr.includes('T') || dateStr.includes(' ')) {
+        return new Date(dateStr)
+      }
+      // If it's just a date, add time to treat as local
+      return new Date(dateStr + 'T00:00:00')
+    }
+
+    const startDate = parseDate(start)
+    const endDate = parseDate(end)
 
     // Check if dates are valid after parsing
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.error('Invalid dates:', { start, end, startDate, endDate })
       return 'Date not available'
     }
 
+    // Extract just the date parts for comparison (ignore time)
+    const startDateOnly = startDate.toISOString().split('T')[0]
+    const endDateOnly = endDate.toISOString().split('T')[0]
+
     // Check if same day (for daycare)
-    if (start === end) {
+    if (startDateOnly === endDateOnly) {
       return startDate.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
