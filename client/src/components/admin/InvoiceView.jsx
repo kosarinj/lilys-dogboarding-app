@@ -234,7 +234,7 @@ function InvoiceView({ bill, onClose }) {
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                   }}>
                     <img
-                      src={dogGroup.items[0].dog_photo_url}
+                      src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${dogGroup.items[0].dog_photo_url}`}
                       alt={dogGroup.dog_name}
                       style={{
                         width: '100%',
@@ -293,7 +293,7 @@ function InvoiceView({ bill, onClose }) {
                   color: '#2c3e50'
                 }}>
                   <div>
-                    <strong>{item.dog_name}</strong> - {item.days_count} {item.days_count > 1 ? 'Nights' : 'Night'}
+                    <strong>{item.dog_name}</strong> - {item.days_count} {item.stay_type === 'daycare' ? (item.days_count > 1 ? 'Days' : 'Day') : (item.days_count > 1 ? 'Nights' : 'Night')}
                     {item.rate_type === 'holiday' && (
                       <span style={{
                         marginLeft: '8px',
