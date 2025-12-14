@@ -12,9 +12,18 @@ function InvoiceView({ bill, onClose }) {
   }
 
   const formatDateRange = (start, end) => {
+    // Check if dates are valid
+    if (!start || !end) return 'Date not available'
+
     // Parse dates as local time to avoid timezone shifting
     const startDate = new Date(start + 'T00:00:00')
     const endDate = new Date(end + 'T00:00:00')
+
+    // Check if dates are valid after parsing
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return 'Date not available'
+    }
+
     const startStr = startDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
@@ -310,7 +319,16 @@ function InvoiceView({ bill, onClose }) {
                     )}
                   </div>
                   <div>
-                    {item.days_count} × {formatCurrency(item.daily_rate)} = <strong>{formatCurrency(itemBoardingCost)}</strong>
+                    {item.special_price ? (
+                      // If special price, just show the total with a note
+                      <span>
+                        <span style={{ fontSize: '13px', color: '#7f8c8d', marginRight: '8px' }}>Special Rate</span>
+                        <strong>{formatCurrency(itemBoardingCost)}</strong>
+                      </span>
+                    ) : (
+                      // Normal calculation
+                      <span>{item.days_count} × {formatCurrency(item.daily_rate)} = <strong>{formatCurrency(itemBoardingCost)}</strong></span>
+                    )}
                   </div>
                 </div>
               )

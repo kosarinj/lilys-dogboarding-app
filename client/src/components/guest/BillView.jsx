@@ -36,9 +36,18 @@ function BillView({ billCode }) {
   }
 
   const formatDateRange = (start, end) => {
+    // Check if dates are valid
+    if (!start || !end) return 'Date not available'
+
     // Parse dates as local time to avoid timezone shifting
     const startDate = new Date(start + 'T00:00:00')
     const endDate = new Date(end + 'T00:00:00')
+
+    // Check if dates are valid after parsing
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return 'Date not available'
+    }
+
     const startStr = startDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
