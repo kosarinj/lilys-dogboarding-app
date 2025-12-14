@@ -138,11 +138,11 @@ router.post('/', async (req, res) => {
     // Get stay details
     const staysResult = await query(`
       SELECT * FROM stays
-      WHERE id = ANY($1) AND status IN ('active', 'completed')
+      WHERE id = ANY($1) AND status IN ('upcoming', 'active', 'completed')
     `, [stay_ids])
 
     if (staysResult.rows.length === 0) {
-      return res.status(400).json({ error: 'No active or completed stays found' })
+      return res.status(400).json({ error: 'No billable stays found' })
     }
 
     const stays = staysResult.rows
