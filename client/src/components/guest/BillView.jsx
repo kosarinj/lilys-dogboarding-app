@@ -26,7 +26,9 @@ function BillView({ billCode }) {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    // Parse date as local time to avoid timezone shifting
+    const date = new Date(dateString + 'T00:00:00')
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -34,8 +36,9 @@ function BillView({ billCode }) {
   }
 
   const formatDateRange = (start, end) => {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
+    // Parse dates as local time to avoid timezone shifting
+    const startDate = new Date(start + 'T00:00:00')
+    const endDate = new Date(end + 'T00:00:00')
     const startStr = startDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'

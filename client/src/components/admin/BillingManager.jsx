@@ -121,7 +121,9 @@ function BillingManager() {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    // Parse date as local time to avoid timezone shifting
+    const date = new Date(dateString + 'T00:00:00')
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
