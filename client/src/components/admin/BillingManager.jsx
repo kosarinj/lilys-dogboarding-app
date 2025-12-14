@@ -171,7 +171,7 @@ function BillingManager() {
         <div className="form-card" style={{ marginBottom: '24px' }}>
           <h2 style={{ marginBottom: '20px' }}>Unbilled Stays</h2>
           <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
-            Select active or completed stays to generate bills for customers
+            Select upcoming, active, or completed stays to generate bills for customers
           </p>
 
           {customerGroups.map(group => {
