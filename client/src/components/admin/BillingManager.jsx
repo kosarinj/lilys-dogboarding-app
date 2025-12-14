@@ -123,13 +123,19 @@ function BillingManager() {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
 
-    // Handle both date strings (YYYY-MM-DD) and timestamps
-    let date
-    if (dateString.includes('T') || dateString.includes(' ')) {
-      date = new Date(dateString)
+    // Extract just the date portion (YYYY-MM-DD) regardless of format
+    let datePart
+    if (dateString.includes('T')) {
+      datePart = dateString.split('T')[0]
+    } else if (dateString.includes(' ')) {
+      datePart = dateString.split(' ')[0]
     } else {
-      date = new Date(dateString + 'T00:00:00')
+      datePart = dateString
     }
+
+    // Parse as local date by providing year, month, day separately
+    const [year, month, day] = datePart.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month is 0-indexed
 
     if (isNaN(date.getTime())) return 'Invalid Date'
 

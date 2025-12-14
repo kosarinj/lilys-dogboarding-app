@@ -17,12 +17,19 @@ function InvoiceView({ bill, onClose }) {
 
     // Handle both date strings (YYYY-MM-DD) and timestamps
     const parseDate = (dateStr) => {
-      // If it's already a timestamp with time, just parse it
-      if (dateStr.includes('T') || dateStr.includes(' ')) {
-        return new Date(dateStr)
+      // Extract just the date portion (YYYY-MM-DD) regardless of format
+      let datePart
+      if (dateStr.includes('T')) {
+        datePart = dateStr.split('T')[0]
+      } else if (dateStr.includes(' ')) {
+        datePart = dateStr.split(' ')[0]
+      } else {
+        datePart = dateStr
       }
-      // If it's just a date, add time to treat as local
-      return new Date(dateStr + 'T00:00:00')
+
+      // Parse as local date by providing year, month, day separately
+      const [year, month, day] = datePart.split('-').map(Number)
+      return new Date(year, month - 1, day) // month is 0-indexed
     }
 
     const startDate = parseDate(start)
