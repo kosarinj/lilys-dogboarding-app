@@ -121,8 +121,18 @@ function BillingManager() {
   }
 
   const formatDate = (dateString) => {
-    // Parse date as local time to avoid timezone shifting
-    const date = new Date(dateString + 'T00:00:00')
+    if (!dateString) return 'N/A'
+
+    // Handle both date strings (YYYY-MM-DD) and timestamps
+    let date
+    if (dateString.includes('T') || dateString.includes(' ')) {
+      date = new Date(dateString)
+    } else {
+      date = new Date(dateString + 'T00:00:00')
+    }
+
+    if (isNaN(date.getTime())) return 'Invalid Date'
+
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',

@@ -34,12 +34,14 @@ function InvoiceView({ bill, onClose }) {
       return 'Date not available'
     }
 
-    // Extract just the date parts for comparison (ignore time)
-    const startDateOnly = startDate.toISOString().split('T')[0]
-    const endDateOnly = endDate.toISOString().split('T')[0]
+    // Compare dates using local date parts (not ISO which converts to UTC)
+    const isSameDay =
+      startDate.getFullYear() === endDate.getFullYear() &&
+      startDate.getMonth() === endDate.getMonth() &&
+      startDate.getDate() === endDate.getDate()
 
     // Check if same day (for daycare)
-    if (startDateOnly === endDateOnly) {
+    if (isSameDay) {
       return startDate.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
