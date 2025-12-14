@@ -33,12 +33,20 @@ router.post('/', upload.single('photo'), async (req, res) => {
     }
 
     // Check if Cloudinary is configured
+    console.log('Cloudinary config check:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set'
+    })
+
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
       console.warn('⚠️ Cloudinary not configured. Using fallback local storage.')
       // Return a mock URL for development/testing
       const mockUrl = `/uploads/mock-${Date.now()}.jpg`
       return res.json({ url: mockUrl, mock: true })
     }
+
+    console.log('✓ Cloudinary configured, uploading to cloud...')
 
     // Upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
