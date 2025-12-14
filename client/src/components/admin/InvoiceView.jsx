@@ -29,7 +29,9 @@ function InvoiceView({ bill, onClose }) {
 
       // Parse as local date by providing year, month, day separately
       const [year, month, day] = datePart.split('-').map(Number)
-      return new Date(year, month - 1, day) // month is 0-indexed
+      const result = new Date(year, month - 1, day) // month is 0-indexed
+      console.log('Date parsing:', { input: dateStr, datePart, year, month, day, result: result.toLocaleDateString() })
+      return result
     }
 
     const startDate = parseDate(start)
