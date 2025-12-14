@@ -153,21 +153,36 @@ function InvoiceView({ bill, onClose }) {
   let boardingTotal = 0
   let dropoffTotal = 0
   let pickupTotal = 0
+  let extraChargeTotal = 0
   let holidaySurcharge = 0
 
   // Determine service type - check if any items are daycare
   const hasDaycare = bill.items.some(item => item.stay_type === 'daycare')
   const hasBoarding = bill.items.some(item => item.stay_type === 'boarding')
 
+  // Collect all extra charge items with their comments
+  const extraCharges = []
+
   bill.items.forEach(item => {
     const itemCost = parseFloat(item.total_cost)
     const dropoffFee = parseFloat(item.dropoff_fee || 0)
     const pickupFee = parseFloat(item.pickup_fee || 0)
+    const extraCharge = parseFloat(item.extra_charge || 0)
 
-    // Boarding cost (total - fees)
-    boardingTotal += (itemCost - dropoffFee - pickupFee)
+    // Boarding cost (total - fees - extra charge)
+    boardingTotal += (itemCost - dropoffFee - pickupFee - extraCharge)
     dropoffTotal += dropoffFee
     pickupTotal += pickupFee
+    extraChargeTotal += extraCharge
+
+    // Collect extra charges with comments
+    if (extraCharge > 0) {
+      extraCharges.push({
+        amount: extraCharge,
+        comment: item.extra_charge_comments || 'Additional charge',
+        dogName: item.dog_name
+      })
+    }
 
     // Check if holiday rate
     if (item.rate_type === 'holiday') {
@@ -331,7 +346,7 @@ function InvoiceView({ bill, onClose }) {
           }}>
             {/* Boarding */}
             {bill.items.map((item, index) => {
-              const itemBoardingCost = parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0)
+              const itemBoardingCost = parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0)
               return (
                 <div key={index} style={{
                   display: 'flex',
@@ -369,8 +384,8 @@ function InvoiceView({ bill, onClose }) {
               )
             })}
 
-            {/* Drop-off/Pick-up Services */}
-            {(dropoffTotal > 0 || pickupTotal > 0) && (
+            {/* Drop-off/Pick-up Services and Extra Charges */}
+            {(dropoffTotal > 0 || pickupTotal > 0 || extraChargeTotal > 0) && (
               <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #ecf0f1' }}>
                 <div style={{ fontSize: '15px', fontWeight: '600', color: '#2c3e50', marginBottom: '12px' }}>
                   Additional Services:
@@ -399,6 +414,21 @@ function InvoiceView({ bill, onClose }) {
                     <div><strong>{formatCurrency(pickupTotal)}</strong></div>
                   </div>
                 )}
+                {extraCharges.map((charge, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px',
+                    fontSize: '15px',
+                    color: '#2c3e50'
+                  }}>
+                    <div>
+                      💰 {charge.comment}
+                      {extraCharges.length > 1 && <span style={{ fontSize: '13px', color: '#7f8c8d', marginLeft: '4px' }}>({charge.dogName})</span>}
+                    </div>
+                    <div><strong>{formatCurrency(charge.amount)}</strong></div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

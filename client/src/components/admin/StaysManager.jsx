@@ -22,7 +22,9 @@ function StaysManager() {
     notes: '',
     status: 'upcoming',
     requires_dropoff: false,
-    requires_pickup: false
+    requires_pickup: false,
+    extra_charge: '',
+    extra_charge_comments: ''
   })
 
   useEffect(() => {
@@ -80,7 +82,9 @@ function StaysManager() {
         notes: '',
         status: 'upcoming',
         requires_dropoff: false,
-        requires_pickup: false
+        requires_pickup: false,
+        extra_charge: '',
+        extra_charge_comments: ''
       })
       setShowForm(false)
       setEditingStay(null)
@@ -105,7 +109,9 @@ function StaysManager() {
       notes: stay.notes || '',
       status: stay.status,
       requires_dropoff: stay.requires_dropoff || false,
-      requires_pickup: stay.requires_pickup || false
+      requires_pickup: stay.requires_pickup || false,
+      extra_charge: stay.extra_charge || '',
+      extra_charge_comments: stay.extra_charge_comments || ''
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -135,7 +141,9 @@ function StaysManager() {
       notes: '',
       status: 'upcoming',
       requires_dropoff: false,
-      requires_pickup: false
+      requires_pickup: false,
+      extra_charge: '',
+      extra_charge_comments: ''
     })
     setShowForm(false)
     setEditingStay(null)
@@ -362,6 +370,35 @@ function StaysManager() {
                   <span>Pick-up (${fees.pickup.toFixed(2)})</span>
                 </label>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Extra Charge (Optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                className="form-input"
+                value={formData.extra_charge}
+                onChange={(e) => setFormData({ ...formData, extra_charge: e.target.value })}
+                placeholder="Additional charge amount (e.g., 25.00)"
+              />
+              <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                Enter any additional charges beyond standard rates and services.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Extra Charge Comments (Optional)</label>
+              <textarea
+                className="form-textarea"
+                value={formData.extra_charge_comments}
+                onChange={(e) => setFormData({ ...formData, extra_charge_comments: e.target.value })}
+                rows="2"
+                placeholder="Description of the extra charge..."
+              />
+              <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                Explain what the extra charge is for (will appear on invoice).
+              </p>
             </div>
 
             <div className="form-group">

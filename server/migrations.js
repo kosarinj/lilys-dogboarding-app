@@ -114,6 +114,15 @@ export async function runMigrations() {
     `)
     console.log('✓ Added age_entry_date to dogs for automatic age tracking')
 
+    // Add extra charge fields to stays table
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS extra_charge DECIMAL(10,2)
+    `)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS extra_charge_comments TEXT
+    `)
+    console.log('✓ Added extra_charge and extra_charge_comments to stays')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

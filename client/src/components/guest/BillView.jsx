@@ -299,13 +299,13 @@ function BillView({ billCode }) {
                     {formatCurrency(item.daily_rate)}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
-                    {formatCurrency(parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0))}
+                    {formatCurrency(parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0))}
                   </td>
                 </tr>
               ))}
 
               {/* Additional Services */}
-              {bill.items.some(item => item.dropoff_fee > 0 || item.pickup_fee > 0) && (
+              {bill.items.some(item => item.dropoff_fee > 0 || item.pickup_fee > 0 || item.extra_charge > 0) && (
                 <>
                   {bill.items.filter(item => item.dropoff_fee > 0).map((item, index) => (
                     <tr key={`dropoff-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
@@ -324,6 +324,21 @@ function BillView({ billCode }) {
                       <td style={{ padding: '16px 12px', textAlign: 'right', color: '#7f8c8d' }}>-</td>
                       <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
                         {formatCurrency(item.pickup_fee)}
+                      </td>
+                    </tr>
+                  ))}
+                  {bill.items.filter(item => item.extra_charge > 0).map((item, index) => (
+                    <tr key={`extra-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '16px 12px', color: '#7f8c8d' }}>
+                        {item.extra_charge_comments || 'Additional Charge'}
+                        {bill.items.filter(i => i.extra_charge > 0).length > 1 && (
+                          <span style={{ fontSize: '12px', marginLeft: '4px' }}>({item.dog_name})</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 12px', textAlign: 'center', color: '#7f8c8d' }}>-</td>
+                      <td style={{ padding: '16px 12px', textAlign: 'right', color: '#7f8c8d' }}>-</td>
+                      <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
+                        {formatCurrency(item.extra_charge)}
                       </td>
                     </tr>
                   ))}
