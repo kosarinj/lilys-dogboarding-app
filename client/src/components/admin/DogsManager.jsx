@@ -250,10 +250,17 @@ function DogsManager() {
               {formData.photo_url && (
                 <div style={{ marginTop: '12px' }}>
                   <img
-                    src={formData.photo_url.startsWith('http') ? formData.photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${formData.photo_url}`}
+                    src={formData.photo_url?.startsWith('http') ? formData.photo_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')}${formData.photo_url}`}
                     alt="Dog preview"
                     style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e8e8e8' }}
+                    onError={(e) => {
+                      console.error('Image failed to load:', formData.photo_url)
+                      e.target.style.display = 'none'
+                    }}
                   />
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    {formData.photo_url}
+                  </p>
                 </div>
               )}
             </div>
