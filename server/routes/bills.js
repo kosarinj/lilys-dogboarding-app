@@ -1,7 +1,14 @@
 import express from 'express'
 import { query } from '../models/db.js'
+import twilio from 'twilio'
 
 const router = express.Router()
+
+// Initialize Twilio client (will be configured via environment variables)
+let twilioClient = null
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+}
 
 // Generate unique bill code
 function generateBillCode() {
@@ -103,7 +110,7 @@ router.get('/code/:code', async (req, res) => {
     const bill = billResult.rows[0]
 
     const itemsResult = await query(`
-      SELECT bi.*, s.*, d.name as dog_name, d.size as dog_size
+      SELECT bi.*, s.*, d.name as dog_name, d.size as dog_size, d.photo_url as dog_photo_url
       FROM bill_items bi
       JOIN stays s ON bi.stay_id = s.id
       JOIN dogs d ON s.dog_id = d.id
@@ -233,6 +240,66 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ message: 'Bill deleted successfully' })
   } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST /api/bills/:id/send-sms - Send bill link via SMS
+router.post('/:id/send-sms', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { phone_number } = req.body
+
+    if (!phone_number) {
+      return res.status(400).json({ error: 'Phone number is required' })
+    }
+
+    // Get bill details
+    const billResult = await query(`
+      SELECT b.*, c.name as customer_name
+      FROM bills b
+      JOIN customers c ON b.customer_id = c.id
+      WHERE b.id = $1
+    `, [id])
+
+    if (billResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Bill not found' })
+    }
+
+    const bill = billResult.rows[0]
+
+    // Generate bill link
+    const billLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/bill/${bill.bill_code}`
+
+    // Check if Twilio is configured
+    if (!twilioClient) {
+      console.log('📱 Twilio not configured. Would send SMS to:', phone_number)
+      console.log('📝 Message:', `Hi! Here's your bill from Lily's Dog Boarding: ${billLink}`)
+      return res.json({
+        message: 'SMS would be sent (Twilio not configured)',
+        phone: phone_number,
+        link: billLink,
+        mock: true
+      })
+    }
+
+    // Send SMS via Twilio
+    const message = await twilioClient.messages.create({
+      body: `Hi! Here's your bill from Lily's Dog Boarding: ${billLink}\n\nTotal: $${bill.total_amount}\nDue Date: ${new Date(bill.due_date).toLocaleDateString()}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone_number
+    })
+
+    console.log(`✅ SMS sent to ${phone_number}: ${message.sid}`)
+
+    res.json({
+      message: 'SMS sent successfully',
+      phone: phone_number,
+      link: billLink,
+      sid: message.sid
+    })
+  } catch (error) {
+    console.error('Error sending SMS:', error)
     res.status(500).json({ error: error.message })
   }
 })

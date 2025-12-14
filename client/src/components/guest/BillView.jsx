@@ -164,11 +164,41 @@ function BillView({ billCode }) {
         </div>
 
         {/* Service For */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', marginBottom: '8px' }}>
-            Service for: <span style={{ color: '#f472b6' }}>
-              {allDogNames.join(', ')}
-            </span>
+        <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', marginBottom: '8px' }}>
+              Service for: <span style={{ color: '#f472b6' }}>
+                {allDogNames.join(', ')}
+              </span>
+            </div>
+          </div>
+          {/* Dog Photos */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {Object.values(dogGroups).map((dogGroup, index) => (
+              dogGroup.items[0]?.dog_photo_url && (
+                <div key={index} style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '3px solid #f472b6',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}>
+                  <img
+                    src={dogGroup.items[0].dog_photo_url}
+                    alt={dogGroup.dog_name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                    }}
+                  />
+                </div>
+              )
+            ))}
           </div>
         </div>
 

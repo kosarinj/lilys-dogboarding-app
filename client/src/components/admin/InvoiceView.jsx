@@ -58,6 +58,31 @@ function InvoiceView({ bill, onClose }) {
     }
   }
 
+  const handleSendSMS = async () => {
+    const phoneNumber = prompt('Enter phone number (e.g., +18457431086):', '+18457431086')
+    if (!phoneNumber) return
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bills/${bill.id}/send-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phoneNumber })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        if (data.mock) {
+          alert(`SMS Preview (Twilio not configured):\n\nTo: ${data.phone}\n\nLink: ${data.link}\n\nNote: Configure Twilio credentials in .env to send real SMS.`)
+        } else {
+          alert(`✅ SMS sent successfully to ${data.phone}!\n\nBill link: ${data.link}`)
+        }
+      } else {
+        alert(`Failed to send SMS: ${data.error}`)
+      }
+    } catch (err) {
+      alert('Failed to send SMS: ' + err.message)
+    }
+  }
+
   if (!bill || !bill.items) return null
 
   // Group items by dog
@@ -120,6 +145,9 @@ function InvoiceView({ bill, onClose }) {
               🔗 Copy Shareable Link
             </button>
           )}
+          <button onClick={handleSendSMS} className="btn btn-success" style={{ background: '#10b981' }}>
+            📱 Send SMS
+          </button>
         </div>
 
         {/* Shareable Link Display */}
@@ -174,19 +202,49 @@ function InvoiceView({ bill, onClose }) {
           </div>
 
           {/* Service For */}
-          <div style={{ marginBottom: '32px' }}>
-            <div style={{
-              fontSize: '18px',
-              fontWeight: '600',
-              color: '#2c3e50',
-              marginBottom: '8px'
-            }}>
-              Service for: <span style={{ color: 'var(--theme-primary, #f472b6)' }}>
-                {allDogNames.join(', ')}
-              </span>
+          <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                color: '#2c3e50',
+                marginBottom: '8px'
+              }}>
+                Service for: <span style={{ color: 'var(--theme-primary, #f472b6)' }}>
+                  {allDogNames.join(', ')}
+                </span>
+              </div>
+              <div style={{ fontSize: '14px', color: '#7f8c8d' }}>
+                Customer: {bill.customer_name}
+              </div>
             </div>
-            <div style={{ fontSize: '14px', color: '#7f8c8d' }}>
-              Customer: {bill.customer_name}
+            {/* Dog Photos */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {Object.values(dogGroups).map((dogGroup, index) => (
+                dogGroup.items[0]?.dog_photo_url && (
+                  <div key={index} style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    border: '3px solid var(--theme-primary, #f472b6)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}>
+                    <img
+                      src={dogGroup.items[0].dog_photo_url}
+                      alt={dogGroup.dog_name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                      }}
+                    />
+                  </div>
+                )
+              ))}
             </div>
           </div>
 
