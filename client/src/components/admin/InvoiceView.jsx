@@ -111,6 +111,10 @@ function InvoiceView({ bill, onClose }) {
   let pickupTotal = 0
   let holidaySurcharge = 0
 
+  // Determine service type - check if any items are daycare
+  const hasDaycare = bill.items.some(item => item.stay_type === 'daycare')
+  const hasBoarding = bill.items.some(item => item.stay_type === 'boarding')
+
   bill.items.forEach(item => {
     const itemCost = parseFloat(item.total_cost)
     const dropoffFee = parseFloat(item.dropoff_fee || 0)
@@ -263,13 +267,13 @@ function InvoiceView({ bill, onClose }) {
           {/* Service Type */}
           <div style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', gap: '24px', fontSize: '16px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input type="checkbox" checked readOnly style={{ width: '20px', height: '20px' }} />
-                <span style={{ fontWeight: '600' }}>Boarding</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasBoarding ? '#2c3e50' : '#95a5a6' }}>
+                <input type="checkbox" checked={hasBoarding} readOnly style={{ width: '20px', height: '20px' }} />
+                <span style={{ fontWeight: hasBoarding ? '600' : '400' }}>Boarding</span>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#95a5a6' }}>
-                <input type="checkbox" readOnly style={{ width: '20px', height: '20px' }} />
-                <span>Day Care</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasDaycare ? '#2c3e50' : '#95a5a6' }}>
+                <input type="checkbox" checked={hasDaycare} readOnly style={{ width: '20px', height: '20px' }} />
+                <span style={{ fontWeight: hasDaycare ? '600' : '400' }}>Day Care</span>
               </label>
             </div>
           </div>
