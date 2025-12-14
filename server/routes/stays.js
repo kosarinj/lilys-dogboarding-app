@@ -64,6 +64,19 @@ router.post('/', async (req, res) => {
     const checkOut = new Date(check_out_date)
     let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
+    // If same date but checkout time is before checkin time, add 1 day (checkout is next day)
+    if (days_count === 0 && check_in_time && check_out_time) {
+      const [inHour, inMin] = check_in_time.split(':').map(Number)
+      const [outHour, outMin] = check_out_time.split(':').map(Number)
+      const inMinutes = inHour * 60 + inMin
+      const outMinutes = outHour * 60 + outMin
+
+      if (outMinutes < inMinutes) {
+        // Checkout time is before checkin time, so checkout is actually next day
+        days_count = 1
+      }
+    }
+
     // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
     // For boarding, check-out must be after check-in (at least 1 night)
     if (stay_type === 'daycare') {
@@ -141,6 +154,19 @@ router.put('/:id', async (req, res) => {
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
     let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+
+    // If same date but checkout time is before checkin time, add 1 day (checkout is next day)
+    if (days_count === 0 && check_in_time && check_out_time) {
+      const [inHour, inMin] = check_in_time.split(':').map(Number)
+      const [outHour, outMin] = check_out_time.split(':').map(Number)
+      const inMinutes = inHour * 60 + inMin
+      const outMinutes = outHour * 60 + outMin
+
+      if (outMinutes < inMinutes) {
+        // Checkout time is before checkin time, so checkout is actually next day
+        days_count = 1
+      }
+    }
 
     // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
     // For boarding, check-out must be after check-in (at least 1 night)
