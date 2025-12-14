@@ -48,6 +48,16 @@ function BillView({ billCode }) {
       return 'Date not available'
     }
 
+    // Check if same day (for daycare)
+    if (start === end) {
+      return startDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    }
+
+    // Different dates - show range
     const startStr = startDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
