@@ -305,7 +305,7 @@ function BillView({ billCode }) {
                     </div>
                     <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
                       {formatDate(item.check_in_date)} to {formatDate(item.check_out_date)}
-                      {item.rate_type === 'holiday' && ' (Holiday Rate)'}
+                      {!item.special_price && item.rate_type === 'holiday' && ' (Holiday Rate)'}
                     </div>
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'center', color: '#2c3e50' }}>
