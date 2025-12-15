@@ -4,7 +4,7 @@ import './ThemeSwitcher.css'
 
 function ThemeSwitcher() {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('appTheme') || 'pink'
+    return localStorage.getItem('appTheme') || 'teal'
   })
   const [isOpen, setIsOpen] = useState(false)
 

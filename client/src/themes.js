@@ -62,4 +62,4 @@ export const themes = {
   }
 }
 
-export const getTheme = (themeName) => themes[themeName] || themes.pink
+export const getTheme = (themeName) => themes[themeName] || themes.teal
