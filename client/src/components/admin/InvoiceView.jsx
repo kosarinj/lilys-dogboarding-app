@@ -396,7 +396,7 @@ function InvoiceView({ bill, onClose }) {
                   }}>
                     <div>
                       <strong>{item.dog_name}</strong> - {item.days_count} {item.stay_type === 'daycare' ? (item.days_count > 1 ? 'Days' : 'Day') : (item.days_count > 1 ? 'Nights' : 'Night')}
-                      {item.rate_type === 'holiday' && (
+                      {!item.special_price && item.rate_type === 'holiday' && (
                         <span style={{
                           marginLeft: '8px',
                           fontSize: '13px',
