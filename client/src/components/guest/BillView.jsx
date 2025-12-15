@@ -312,7 +312,7 @@ function BillView({ billCode }) {
                     {item.days_count}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right', color: '#2c3e50' }}>
-                    {formatCurrency(item.daily_rate)}
+                    {item.special_price ? '-' : formatCurrency(item.daily_rate)}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
                     {formatCurrency(parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0))}
