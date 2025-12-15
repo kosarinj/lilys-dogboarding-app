@@ -179,8 +179,11 @@ router.post('/', async (req, res) => {
     }
 
     const bill_date = new Date()
-    const due_date = new Date(bill_date)
-    due_date.setDate(due_date.getDate() + 7) // Due in 7 days
+
+    // Set due date to the last checkout date from the stays
+    const checkoutDates = stays.map(stay => new Date(stay.check_out_date))
+    const latestCheckout = new Date(Math.max(...checkoutDates))
+    const due_date = latestCheckout
 
     // Create bill
     const billResult = await query(`
