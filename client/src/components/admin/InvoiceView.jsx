@@ -2,8 +2,24 @@ import './admin.css'
 
 function InvoiceView({ bill, onClose }) {
   const formatDate = (dateString) => {
-    // Parse date as local time to avoid timezone shifting
-    const date = new Date(dateString + 'T00:00:00')
+    if (!dateString) return 'N/A'
+
+    // Extract just the date portion (YYYY-MM-DD) regardless of format
+    let datePart
+    if (dateString.includes('T')) {
+      datePart = dateString.split('T')[0]
+    } else if (dateString.includes(' ')) {
+      datePart = dateString.split(' ')[0]
+    } else {
+      datePart = dateString
+    }
+
+    // Parse as local date by providing year, month, day separately
+    const [year, month, day] = datePart.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month is 0-indexed
+
+    if (isNaN(date.getTime())) return 'Invalid Date'
+
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -130,6 +146,23 @@ function InvoiceView({ bill, onClose }) {
     }
   }
 
+  const handleEmailInvoice = () => {
+    const shareableLink = `${window.location.origin}/bill/${bill.bill_code}`
+    const customerEmail = bill.customer_email || ''
+    const subject = encodeURIComponent(`Invoice from Lily's Dog Boarding - ${bill.bill_code}`)
+    const body = encodeURIComponent(
+      `Hello ${bill.customer_name},\n\n` +
+      `Thank you for choosing Lily's Dog Boarding!\n\n` +
+      `You can view your invoice here:\n${shareableLink}\n\n` +
+      `Invoice Total: $${bill.total_amount}\n` +
+      `Due Date: ${formatDate(bill.due_date)}\n\n` +
+      `If you have any questions, please don't hesitate to reach out.\n\n` +
+      `Best regards,\nLily's Dog Boarding`
+    )
+
+    window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`
+  }
+
   if (!bill || !bill.items) return null
 
   // Group items by dog
@@ -213,6 +246,9 @@ function InvoiceView({ bill, onClose }) {
           )}
           <button onClick={handleSendSMS} className="btn btn-success" style={{ background: '#10b981' }}>
             📱 Send SMS
+          </button>
+          <button onClick={handleEmailInvoice} className="btn btn-primary" style={{ background: '#3b82f6' }}>
+            ✉️ Email Invoice
           </button>
         </div>
 
@@ -349,37 +385,51 @@ function InvoiceView({ bill, onClose }) {
               const itemBoardingCost = parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0)
               return (
                 <div key={index} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '12px',
-                  fontSize: '16px',
-                  color: '#2c3e50'
+                  marginBottom: '16px'
                 }}>
-                  <div>
-                    <strong>{item.dog_name}</strong> - {item.days_count} {item.stay_type === 'daycare' ? (item.days_count > 1 ? 'Days' : 'Day') : (item.days_count > 1 ? 'Nights' : 'Night')}
-                    {item.rate_type === 'holiday' && (
-                      <span style={{
-                        marginLeft: '8px',
-                        fontSize: '13px',
-                        color: 'var(--theme-primary, #f472b6)',
-                        fontWeight: '600'
-                      }}>
-                        🎄 Holiday Rate
-                      </span>
-                    )}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: item.special_price && item.special_price_comments ? '4px' : '0',
+                    fontSize: '16px',
+                    color: '#2c3e50'
+                  }}>
+                    <div>
+                      <strong>{item.dog_name}</strong> - {item.days_count} {item.stay_type === 'daycare' ? (item.days_count > 1 ? 'Days' : 'Day') : (item.days_count > 1 ? 'Nights' : 'Night')}
+                      {item.rate_type === 'holiday' && (
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '13px',
+                          color: 'var(--theme-primary, #f472b6)',
+                          fontWeight: '600'
+                        }}>
+                          🎄 Holiday Rate
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      {item.special_price ? (
+                        // If special price, show the special price amount
+                        <span>
+                          <span style={{ fontSize: '13px', color: '#7f8c8d', marginRight: '8px' }}>Special Rate</span>
+                          <strong>{formatCurrency(parseFloat(item.special_price))}</strong>
+                        </span>
+                      ) : (
+                        // Normal calculation
+                        <span>{item.days_count} × {formatCurrency(item.daily_rate)} = <strong>{formatCurrency(itemBoardingCost)}</strong></span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    {item.special_price ? (
-                      // If special price, just show the total with a note
-                      <span>
-                        <span style={{ fontSize: '13px', color: '#7f8c8d', marginRight: '8px' }}>Special Rate</span>
-                        <strong>{formatCurrency(itemBoardingCost)}</strong>
-                      </span>
-                    ) : (
-                      // Normal calculation
-                      <span>{item.days_count} × {formatCurrency(item.daily_rate)} = <strong>{formatCurrency(itemBoardingCost)}</strong></span>
-                    )}
-                  </div>
+                  {item.special_price && item.special_price_comments && (
+                    <div style={{
+                      fontSize: '13px',
+                      color: '#7f8c8d',
+                      fontStyle: 'italic',
+                      marginLeft: '0'
+                    }}>
+                      {item.special_price_comments}
+                    </div>
+                  )}
                 </div>
               )
             })}

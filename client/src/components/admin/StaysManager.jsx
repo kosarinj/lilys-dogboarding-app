@@ -19,6 +19,7 @@ function StaysManager() {
     stay_type: 'boarding',
     rate_type: 'regular',
     special_price: '',
+    special_price_comments: '',
     notes: '',
     status: 'upcoming',
     requires_dropoff: false,
@@ -79,6 +80,7 @@ function StaysManager() {
         stay_type: 'boarding',
         rate_type: 'regular',
         special_price: '',
+        special_price_comments: '',
         notes: '',
         status: 'upcoming',
         requires_dropoff: false,
@@ -106,6 +108,7 @@ function StaysManager() {
       stay_type: stay.stay_type || 'boarding',
       rate_type: stay.rate_type,
       special_price: stay.special_price || '',
+      special_price_comments: stay.special_price_comments || '',
       notes: stay.notes || '',
       status: stay.status,
       requires_dropoff: stay.requires_dropoff || false,
@@ -345,6 +348,20 @@ function StaysManager() {
               />
               <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
                 Leave blank to use standard pricing. Enter a custom amount to override.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Special Price Comments (Optional)</label>
+              <textarea
+                className="form-textarea"
+                value={formData.special_price_comments}
+                onChange={(e) => setFormData({ ...formData, special_price_comments: e.target.value })}
+                rows="2"
+                placeholder="Explain the reason for the special price..."
+              />
+              <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                Add details about why a special price was set (will appear on invoice).
               </p>
             </div>
 
