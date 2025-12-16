@@ -24,6 +24,19 @@ function Dashboard() {
 
   useEffect(() => {
     loadStats()
+
+    // Refresh data when page becomes visible (e.g., when navigating back to dashboard)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadStats()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const loadStats = async () => {
