@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { staysAPI, dogsAPI, settingsAPI } from '../../utils/api'
+import { staysAPI, dogsAPI, settingsAPI, ratesAPI } from '../../utils/api'
 import './admin.css'
 
 function StaysManager() {
   const [stays, setStays] = useState([])
   const [dogs, setDogs] = useState([])
-  const [fees, setFees] = useState({ dropoff: 15, pickup: 15 })
+  const [rates, setRates] = useState([])
+  const [fees, setFees] = useState({ dropoff: 20, pickup: 20 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -35,13 +36,15 @@ function StaysManager() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [staysRes, dogsRes, settingsRes] = await Promise.all([
+      const [staysRes, dogsRes, settingsRes, ratesRes] = await Promise.all([
         staysAPI.getAll(),
         dogsAPI.getAll(),
-        settingsAPI.getAll()
+        settingsAPI.getAll(),
+        ratesAPI.getAll()
       ])
       setStays(staysRes.data)
       setDogs(dogsRes.data)
+      setRates(ratesRes.data)
 
       // Extract fees from settings
       const settings = settingsRes.data
@@ -49,8 +52,8 @@ function StaysManager() {
       const pickupSetting = settings.find(s => s.setting_key === 'pickup_fee')
 
       setFees({
-        dropoff: dropoffSetting ? parseFloat(dropoffSetting.setting_value) : 15,
-        pickup: pickupSetting ? parseFloat(pickupSetting.setting_value) : 15
+        dropoff: dropoffSetting ? parseFloat(dropoffSetting.setting_value) : 20,
+        pickup: pickupSetting ? parseFloat(pickupSetting.setting_value) : 20
       })
 
       setError(null)
@@ -193,6 +196,66 @@ function StaysManager() {
       style: 'currency',
       currency: 'USD'
     }).format(amount)
+  }
+
+  // Calculate estimated total for booking form
+  const calculateEstimatedTotal = () => {
+    if (!formData.dog_id || !formData.check_in_date || !formData.check_out_date) {
+      return null
+    }
+
+    // If special price is set, use that
+    if (formData.special_price && parseFloat(formData.special_price) > 0) {
+      const specialPrice = parseFloat(formData.special_price)
+      const pickupFee = formData.requires_pickup ? getPickupFee() : 0
+      const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+      const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
+      return specialPrice + pickupFee + dropoffFee + extraCharge
+    }
+
+    // Get selected dog
+    const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+    if (!selectedDog) return null
+
+    // Calculate days
+    const checkIn = new Date(formData.check_in_date)
+    const checkOut = new Date(formData.check_out_date)
+    const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+
+    // Find the appropriate rate
+    const rate = rates.find(r =>
+      r.dog_size === selectedDog.size &&
+      r.rate_type === formData.rate_type &&
+      (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
+    )
+
+    if (!rate) return null
+
+    // Calculate costs
+    const baseCost = days * parseFloat(rate.price_per_day)
+    const pickupFee = formData.requires_pickup ? getPickupFee() : 0
+    const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+    const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
+
+    return baseCost + pickupFee + dropoffFee + extraCharge
+  }
+
+  // Get pickup fee (use dog override if set, otherwise default)
+  const getPickupFee = () => {
+    const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+    if (selectedDog?.pickup_fee_override != null) {
+      return parseFloat(selectedDog.pickup_fee_override)
+    }
+    return fees.pickup
+  }
+
+  // Get dropoff fee (use dog override if set, otherwise default)
+  const getDropoffFee = () => {
+    const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+    if (selectedDog?.dropoff_fee_override != null) {
+      return parseFloat(selectedDog.dropoff_fee_override)
+    }
+    return fees.dropoff
   }
 
   if (loading) return <div className="loading-state">Loading stays...</div>
@@ -428,6 +491,88 @@ function StaysManager() {
                 placeholder="Any special instructions for this stay..."
               />
             </div>
+
+            {/* Estimated Total Summary */}
+            {(() => {
+              const estimatedTotal = calculateEstimatedTotal()
+              if (!estimatedTotal) return null
+
+              const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+              if (!selectedDog) return null
+
+              const checkIn = new Date(formData.check_in_date)
+              const checkOut = new Date(formData.check_out_date)
+              const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+
+              const rate = rates.find(r =>
+                r.dog_size === selectedDog.size &&
+                r.rate_type === formData.rate_type &&
+                (r.service_type === formData.stay_type || !r.service_type)
+              )
+
+              const baseCost = formData.special_price && parseFloat(formData.special_price) > 0
+                ? parseFloat(formData.special_price)
+                : (rate ? days * parseFloat(rate.price_per_day) : 0)
+              const pickupFee = formData.requires_pickup ? getPickupFee() : 0
+              const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+              const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
+
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '20px',
+                  borderRadius: '12px',
+                  marginBottom: '20px',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                }}>
+                  <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', fontWeight: '600' }}>
+                    💰 Estimated Total
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
+                      <span>
+                        {formData.stay_type === 'boarding' ? '🏠 Boarding' : '☀️ Daycare'}
+                        {' '}({days} day{days !== 1 ? 's' : ''}
+                        {rate && !formData.special_price ? ` × ${formatCurrency(rate.price_per_day)}` : ''})
+                        {formData.special_price && parseFloat(formData.special_price) > 0 ? ' (Special Price)' : ''}
+                      </span>
+                      <strong>{formatCurrency(baseCost)}</strong>
+                    </div>
+                    {formData.requires_dropoff && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
+                        <span>🚗 Drop-off Service</span>
+                        <strong>{formatCurrency(dropoffFee)}</strong>
+                      </div>
+                    )}
+                    {formData.requires_pickup && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
+                        <span>🚙 Pick-up Service</span>
+                        <strong>{formatCurrency(pickupFee)}</strong>
+                      </div>
+                    )}
+                    {extraCharge > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
+                        <span>➕ Extra Charge</span>
+                        <strong>{formatCurrency(extraCharge)}</strong>
+                      </div>
+                    )}
+                    <div style={{
+                      borderTop: '2px solid rgba(255, 255, 255, 0.3)',
+                      marginTop: '8px',
+                      paddingTop: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '18px',
+                      fontWeight: '700'
+                    }}>
+                      <span>TOTAL</span>
+                      <span>{formatCurrency(estimatedTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             <div className="form-actions">
               <button type="submit" className="btn btn-success">

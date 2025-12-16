@@ -18,6 +18,8 @@ function DogsManager() {
     location: '',
     size: 'medium',
     status: 'active',
+    pickup_fee_override: '',
+    dropoff_fee_override: '',
     food_preferences: '',
     behavioral_notes: '',
     special_instructions: '',
@@ -53,7 +55,9 @@ function DogsManager() {
       const submitData = {
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
-        age_months: formData.age_months ? parseInt(formData.age_months) : null
+        age_months: formData.age_months ? parseInt(formData.age_months) : null,
+        pickup_fee_override: formData.pickup_fee_override ? parseFloat(formData.pickup_fee_override) : null,
+        dropoff_fee_override: formData.dropoff_fee_override ? parseFloat(formData.dropoff_fee_override) : null
       }
 
       if (editingDog) {
@@ -71,6 +75,8 @@ function DogsManager() {
         location: '',
         size: 'medium',
         status: 'active',
+        pickup_fee_override: '',
+        dropoff_fee_override: '',
         food_preferences: '',
         behavioral_notes: '',
         special_instructions: '',
@@ -113,6 +119,8 @@ function DogsManager() {
       location: dog.location || '',
       size: dog.size,
       status: dog.status || 'active',
+      pickup_fee_override: dog.pickup_fee_override || '',
+      dropoff_fee_override: dog.dropoff_fee_override || '',
       food_preferences: dog.food_preferences || '',
       behavioral_notes: dog.behavioral_notes || '',
       special_instructions: dog.special_instructions || '',
@@ -143,6 +151,8 @@ function DogsManager() {
       location: '',
       size: 'medium',
       status: 'active',
+      pickup_fee_override: '',
+      dropoff_fee_override: '',
       food_preferences: '',
       behavioral_notes: '',
       special_instructions: '',
@@ -349,6 +359,40 @@ function DogsManager() {
                 <option value="active">Active</option>
                 <option value="deceased">Deceased ✝</option>
               </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="form-group">
+                <label className="form-label">Pickup Fee Override</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.pickup_fee_override}
+                  onChange={(e) => setFormData({ ...formData, pickup_fee_override: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  placeholder="Leave blank for default ($20)"
+                />
+                <small style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                  Custom pickup fee for this dog (defaults to $20)
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Drop-off Fee Override</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.dropoff_fee_override}
+                  onChange={(e) => setFormData({ ...formData, dropoff_fee_override: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  placeholder="Leave blank for default ($20)"
+                />
+                <small style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                  Custom drop-off fee for this dog (defaults to $20)
+                </small>
+              </div>
             </div>
 
             <div className="form-group">

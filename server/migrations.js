@@ -21,11 +21,18 @@ export async function runMigrations() {
     await query(`
       INSERT INTO settings (setting_key, setting_value, description)
       VALUES
-        ('dropoff_fee', 15.00, 'Fee for drop-off service'),
-        ('pickup_fee', 15.00, 'Fee for pick-up service')
+        ('dropoff_fee', 20.00, 'Fee for drop-off service'),
+        ('pickup_fee', 20.00, 'Fee for pick-up service')
       ON CONFLICT (setting_key) DO NOTHING
     `)
     console.log('✓ Default settings configured')
+
+    // Update existing fee settings to $20 if they're still at $15
+    await query(`
+      UPDATE settings SET setting_value = 20.00
+      WHERE setting_key IN ('dropoff_fee', 'pickup_fee') AND setting_value = 15.00
+    `)
+    console.log('✓ Updated fee settings to $20')
 
     // Add months field to dogs table
     await query(`
@@ -128,6 +135,15 @@ export async function runMigrations() {
       ALTER TABLE stays ADD COLUMN IF NOT EXISTS special_price_comments TEXT
     `)
     console.log('✓ Added special_price_comments to stays')
+
+    // Add pickup and dropoff fee overrides to dogs table
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS pickup_fee_override DECIMAL(10,2)
+    `)
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS dropoff_fee_override DECIMAL(10,2)
+    `)
+    console.log('✓ Added pickup_fee_override and dropoff_fee_override to dogs')
 
     console.log('✓ All migrations completed successfully')
   } catch (error) {

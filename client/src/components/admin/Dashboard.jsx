@@ -9,9 +9,15 @@ function Dashboard() {
     activeStays: 0,
     upcomingStays: 0,
     completedStays: 0,
+    cancelledStays: 0,
     unpaidBills: 0,
     monthlyRevenue: 0,
-    totalRevenue: 0
+    totalRevenue: 0,
+    upcomingStaysTotal: 0,
+    activeStaysTotal: 0,
+    completedStaysTotal: 0,
+    cancelledStaysTotal: 0,
+    allStaysTotal: 0
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -33,10 +39,22 @@ function Dashboard() {
       const stays = staysRes.data
       const bills = billsRes.data
 
-      // Count active stays (status = 'active')
-      const activeStays = stays.filter(s => s.status === 'active').length
-      const upcomingStays = stays.filter(s => s.status === 'upcoming').length
-      const completedStays = stays.filter(s => s.status === 'completed').length
+      // Count and calculate totals for each stay status
+      const activeStaysData = stays.filter(s => s.status === 'active')
+      const upcomingStaysData = stays.filter(s => s.status === 'upcoming')
+      const completedStaysData = stays.filter(s => s.status === 'completed')
+      const cancelledStaysData = stays.filter(s => s.status === 'cancelled')
+
+      const activeStays = activeStaysData.length
+      const upcomingStays = upcomingStaysData.length
+      const completedStays = completedStaysData.length
+      const cancelledStays = cancelledStaysData.length
+
+      const activeStaysTotal = activeStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
+      const upcomingStaysTotal = upcomingStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
+      const completedStaysTotal = completedStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
+      const cancelledStaysTotal = cancelledStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
+      const allStaysTotal = stays.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
 
       // Calculate unpaid bills total
       const unpaidBills = bills
@@ -67,9 +85,15 @@ function Dashboard() {
         activeStays,
         upcomingStays,
         completedStays,
+        cancelledStays,
         unpaidBills,
         monthlyRevenue,
-        totalRevenue
+        totalRevenue,
+        upcomingStaysTotal,
+        activeStaysTotal,
+        completedStaysTotal,
+        cancelledStaysTotal,
+        allStaysTotal
       })
       setError(null)
     } catch (err) {
@@ -124,26 +148,53 @@ function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '16px' }}>Stay Summary</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '16px' }}>Bookings by Status</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
               onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
               onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
-              <span style={{ color: '#7f8c8d' }}>Active</span>
-              <strong style={{ color: '#27ae60' }}>{stats.activeStays}</strong>
+              <div>
+                <div style={{ color: '#7f8c8d', fontSize: '13px' }}>Upcoming</div>
+                <div style={{ color: '#3498db', fontSize: '11px', marginTop: '2px' }}>{stats.upcomingStays} stay{stats.upcomingStays !== 1 ? 's' : ''}</div>
+              </div>
+              <strong style={{ color: '#3498db', fontSize: '16px' }}>{formatCurrency(stats.upcomingStaysTotal)}</strong>
             </Link>
-            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
               onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
               onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
-              <span style={{ color: '#7f8c8d' }}>Upcoming</span>
-              <strong style={{ color: '#3498db' }}>{stats.upcomingStays}</strong>
+              <div>
+                <div style={{ color: '#7f8c8d', fontSize: '13px' }}>Active</div>
+                <div style={{ color: '#27ae60', fontSize: '11px', marginTop: '2px' }}>{stats.activeStays} stay{stats.activeStays !== 1 ? 's' : ''}</div>
+              </div>
+              <strong style={{ color: '#27ae60', fontSize: '16px' }}>{formatCurrency(stats.activeStaysTotal)}</strong>
             </Link>
-            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+            <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
               onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
               onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
-              <span style={{ color: '#7f8c8d' }}>Completed</span>
-              <strong style={{ color: '#95a5a6' }}>{stats.completedStays}</strong>
+              <div>
+                <div style={{ color: '#7f8c8d', fontSize: '13px' }}>Completed</div>
+                <div style={{ color: '#95a5a6', fontSize: '11px', marginTop: '2px' }}>{stats.completedStays} stay{stats.completedStays !== 1 ? 's' : ''}</div>
+              </div>
+              <strong style={{ color: '#95a5a6', fontSize: '16px' }}>{formatCurrency(stats.completedStaysTotal)}</strong>
             </Link>
+            {stats.cancelledStays > 0 && (
+              <Link to="/admin/stays" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#f8f9fa', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', cursor: 'pointer' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#e9ecef'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#f8f9fa'}>
+                <div>
+                  <div style={{ color: '#7f8c8d', fontSize: '13px' }}>Cancelled</div>
+                  <div style={{ color: '#e74c3c', fontSize: '11px', marginTop: '2px' }}>{stats.cancelledStays} stay{stats.cancelledStays !== 1 ? 's' : ''}</div>
+                </div>
+                <strong style={{ color: '#e74c3c', fontSize: '16px' }}>{formatCurrency(stats.cancelledStaysTotal)}</strong>
+              </Link>
+            )}
+            <div style={{ borderTop: '2px solid #dee2e6', marginTop: '8px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ color: '#2c3e50', fontSize: '14px', fontWeight: '600' }}>Total Bookings</div>
+                <div style={{ color: '#7f8c8d', fontSize: '11px', marginTop: '2px' }}>{stats.activeStays + stats.upcomingStays + stats.completedStays + stats.cancelledStays} total</div>
+              </div>
+              <strong style={{ color: '#2c3e50', fontSize: '18px' }}>{formatCurrency(stats.allStaysTotal)}</strong>
+            </div>
           </div>
         </div>
 
