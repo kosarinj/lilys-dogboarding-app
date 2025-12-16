@@ -133,10 +133,22 @@ function InvoiceView({ bill, onClose }) {
       })
       const data = await response.json()
       if (response.ok) {
-        if (data.mock) {
-          alert(`SMS Preview (Twilio not configured):\n\nTo: ${data.phone}\n\nLink: ${data.link}\n\nNote: Configure Twilio credentials in .env to send real SMS.`)
-        } else {
-          alert(`✅ SMS sent successfully to ${data.phone}!\n\nBill link: ${data.link}`)
+        // Copy link to clipboard
+        if (data.link) {
+          navigator.clipboard.writeText(data.link).then(() => {
+            if (data.mock) {
+              alert(`SMS Preview (Twilio not configured):\n\nTo: ${data.phone}\n\n✅ Link copied to clipboard!\n\nNote: Configure Twilio credentials in .env to send real SMS.`)
+            } else {
+              alert(`✅ SMS sent successfully to ${data.phone}!\n\nLink copied to clipboard - you can paste it into your messaging app.`)
+            }
+          }).catch(() => {
+            // Fallback if clipboard fails
+            if (data.mock) {
+              alert(`SMS Preview (Twilio not configured):\n\nTo: ${data.phone}\n\nLink: ${data.link}\n\nNote: Configure Twilio credentials in .env to send real SMS.`)
+            } else {
+              alert(`✅ SMS sent successfully to ${data.phone}!\n\nBill link: ${data.link}`)
+            }
+          })
         }
       } else {
         alert(`Failed to send SMS: ${data.error}`)
