@@ -285,7 +285,32 @@ function StaysManager() {
 
       {showForm && (
         <div className="form-card">
-          <h2>{editingStay ? 'Edit Stay' : 'Book New Stay'}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: 0 }}>{editingStay ? 'Edit Stay' : 'Book New Stay'}</h2>
+            {(() => {
+              const estimatedTotal = calculateEstimatedTotal()
+              if (!estimatedTotal) return null
+
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+                  minWidth: '150px',
+                  textAlign: 'right'
+                }}>
+                  <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Estimated Total
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>
+                    {formatCurrency(estimatedTotal)}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">Dog *</label>
@@ -491,88 +516,6 @@ function StaysManager() {
                 placeholder="Any special instructions for this stay..."
               />
             </div>
-
-            {/* Estimated Total Summary */}
-            {(() => {
-              const estimatedTotal = calculateEstimatedTotal()
-              if (!estimatedTotal) return null
-
-              const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
-              if (!selectedDog) return null
-
-              const checkIn = new Date(formData.check_in_date)
-              const checkOut = new Date(formData.check_out_date)
-              const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
-
-              const rate = rates.find(r =>
-                r.dog_size === selectedDog.size &&
-                r.rate_type === formData.rate_type &&
-                (r.service_type === formData.stay_type || !r.service_type)
-              )
-
-              const baseCost = formData.special_price && parseFloat(formData.special_price) > 0
-                ? parseFloat(formData.special_price)
-                : (rate ? days * parseFloat(rate.price_per_day) : 0)
-              const pickupFee = formData.requires_pickup ? getPickupFee() : 0
-              const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
-              const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-
-              return (
-                <div style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  marginBottom: '20px',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                }}>
-                  <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', fontWeight: '600' }}>
-                    💰 Estimated Total
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
-                      <span>
-                        {formData.stay_type === 'boarding' ? '🏠 Boarding' : '☀️ Daycare'}
-                        {' '}({days} day{days !== 1 ? 's' : ''}
-                        {rate && !formData.special_price ? ` × ${formatCurrency(rate.price_per_day)}` : ''})
-                        {formData.special_price && parseFloat(formData.special_price) > 0 ? ' (Special Price)' : ''}
-                      </span>
-                      <strong>{formatCurrency(baseCost)}</strong>
-                    </div>
-                    {formData.requires_dropoff && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
-                        <span>🚗 Drop-off Service</span>
-                        <strong>{formatCurrency(dropoffFee)}</strong>
-                      </div>
-                    )}
-                    {formData.requires_pickup && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
-                        <span>🚙 Pick-up Service</span>
-                        <strong>{formatCurrency(pickupFee)}</strong>
-                      </div>
-                    )}
-                    {extraCharge > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
-                        <span>➕ Extra Charge</span>
-                        <strong>{formatCurrency(extraCharge)}</strong>
-                      </div>
-                    )}
-                    <div style={{
-                      borderTop: '2px solid rgba(255, 255, 255, 0.3)',
-                      marginTop: '8px',
-                      paddingTop: '12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: '18px',
-                      fontWeight: '700'
-                    }}>
-                      <span>TOTAL</span>
-                      <span>{formatCurrency(estimatedTotal)}</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
 
             <div className="form-actions">
               <button type="submit" className="btn btn-success">
