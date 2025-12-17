@@ -522,7 +522,7 @@ function InvoiceView({ bill, onClose }) {
               Hello {primaryDogName},
             </p>
             <p style={{ margin: '0', fontSize: '15px', color: '#555', lineHeight: '1.6' }}>
-              Thank you so much for choosing Lily's Dog Boarding! We hope you had a wonderful stay with us. We look forward to seeing you again soon!
+              Thank you so much for choosing Lily's Dog Boarding! We hope you have a wonderful stay with us. We look forward to seeing you!
             </p>
           </div>
 
