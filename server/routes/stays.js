@@ -57,7 +57,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/stays
 router.post('/', async (req, res) => {
   try {
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover } = req.body
 
     // Calculate days
     const checkIn = new Date(check_in_date)
@@ -131,12 +131,17 @@ router.post('/', async (req, res) => {
     }
 
     // Use special_price if provided, otherwise use calculated total_cost
-    const final_total = special_price ? parseFloat(special_price) : total_cost
+    let final_total = special_price ? parseFloat(special_price) : total_cost
+
+    // Apply 20% Rover discount if checked
+    if (rover) {
+      final_total = final_total * 0.8
+    }
 
     const result = await query(
-      `INSERT INTO stays (dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, days_count, daily_rate, total_cost, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge, extra_charge_comments)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING *`,
-      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null]
+      `INSERT INTO stays (dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, days_count, daily_rate, total_cost, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge, extra_charge_comments, rover)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *`,
+      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false]
     )
 
     res.status(201).json(result.rows[0])
@@ -149,7 +154,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover } = req.body
 
     // Calculate days
     const checkIn = new Date(check_in_date)
@@ -211,16 +216,21 @@ router.put('/:id', async (req, res) => {
     const calculated_total = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
 
     // Use special_price if provided, otherwise use calculated total_cost
-    const final_total = special_price ? parseFloat(special_price) : calculated_total
+    let final_total = special_price ? parseFloat(special_price) : calculated_total
+
+    // Apply 20% Rover discount if checked
+    if (rover) {
+      final_total = final_total * 0.8
+    }
 
     const result = await query(
       `UPDATE stays
        SET dog_id = $1, check_in_date = $2, check_out_date = $3, check_in_time = $4, check_out_time = $5,
            stay_type = $6, rate_type = $7, days_count = $8, daily_rate = $9, total_cost = $10,
            special_price = $11, special_price_comments = $12, notes = $13, status = $14, requires_dropoff = $15, requires_pickup = $16,
-           dropoff_fee = $17, pickup_fee = $18, extra_charge = $19, extra_charge_comments = $20, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $21 RETURNING *`,
-      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, id]
+           dropoff_fee = $17, pickup_fee = $18, extra_charge = $19, extra_charge_comments = $20, rover = $21, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $22 RETURNING *`,
+      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false, id]
     )
 
     if (result.rows.length === 0) {
