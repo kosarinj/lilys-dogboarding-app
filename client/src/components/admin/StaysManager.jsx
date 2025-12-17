@@ -26,7 +26,8 @@ function StaysManager() {
     requires_dropoff: false,
     requires_pickup: false,
     extra_charge: '',
-    extra_charge_comments: ''
+    extra_charge_comments: '',
+    rover: false
   })
 
   useEffect(() => {
@@ -89,7 +90,8 @@ function StaysManager() {
         requires_dropoff: false,
         requires_pickup: false,
         extra_charge: '',
-        extra_charge_comments: ''
+        extra_charge_comments: '',
+        rover: false
       })
       setShowForm(false)
       setEditingStay(null)
@@ -117,7 +119,8 @@ function StaysManager() {
       requires_dropoff: stay.requires_dropoff || false,
       requires_pickup: stay.requires_pickup || false,
       extra_charge: stay.extra_charge || '',
-      extra_charge_comments: stay.extra_charge_comments || ''
+      extra_charge_comments: stay.extra_charge_comments || '',
+      rover: stay.rover || false
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -149,7 +152,8 @@ function StaysManager() {
       requires_dropoff: false,
       requires_pickup: false,
       extra_charge: '',
-      extra_charge_comments: ''
+      extra_charge_comments: '',
+      rover: false
     })
     setShowForm(false)
     setEditingStay(null)
@@ -204,40 +208,49 @@ function StaysManager() {
       return null
     }
 
+    let total
+
     // If special price is set, use that
     if (formData.special_price && parseFloat(formData.special_price) > 0) {
       const specialPrice = parseFloat(formData.special_price)
       const pickupFee = formData.requires_pickup ? getPickupFee() : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      return specialPrice + pickupFee + dropoffFee + extraCharge
+      total = specialPrice + pickupFee + dropoffFee + extraCharge
+    } else {
+      // Get selected dog
+      const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+      if (!selectedDog) return null
+
+      // Calculate days
+      const checkIn = new Date(formData.check_in_date)
+      const checkOut = new Date(formData.check_out_date)
+      const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+
+      // Find the appropriate rate
+      const rate = rates.find(r =>
+        r.dog_size === selectedDog.size &&
+        r.rate_type === formData.rate_type &&
+        (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
+      )
+
+      if (!rate) return null
+
+      // Calculate costs
+      const baseCost = days * parseFloat(rate.price_per_day)
+      const pickupFee = formData.requires_pickup ? getPickupFee() : 0
+      const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+      const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
+
+      total = baseCost + pickupFee + dropoffFee + extraCharge
     }
 
-    // Get selected dog
-    const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
-    if (!selectedDog) return null
+    // Apply 20% Rover discount if checked
+    if (formData.rover) {
+      total = total * 0.8
+    }
 
-    // Calculate days
-    const checkIn = new Date(formData.check_in_date)
-    const checkOut = new Date(formData.check_out_date)
-    const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
-
-    // Find the appropriate rate
-    const rate = rates.find(r =>
-      r.dog_size === selectedDog.size &&
-      r.rate_type === formData.rate_type &&
-      (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
-    )
-
-    if (!rate) return null
-
-    // Calculate costs
-    const baseCost = days * parseFloat(rate.price_per_day)
-    const pickupFee = formData.requires_pickup ? getPickupFee() : 0
-    const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
-    const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-
-    return baseCost + pickupFee + dropoffFee + extraCharge
+    return total
   }
 
   // Get pickup fee (use dog override if set, otherwise default)
@@ -473,6 +486,17 @@ function StaysManager() {
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
                   <span>Pick-up (${fees.pickup.toFixed(2)})</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.rover}
+                    onChange={(e) => setFormData({ ...formData, rover: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ color: formData.rover ? '#e67e22' : 'inherit', fontWeight: formData.rover ? '600' : 'normal' }}>
+                    Rover.com (-20%)
+                  </span>
                 </label>
               </div>
             </div>

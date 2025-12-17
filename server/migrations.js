@@ -145,6 +145,12 @@ export async function runMigrations() {
     `)
     console.log('✓ Added pickup_fee_override and dropoff_fee_override to dogs')
 
+    // Add rover flag to stays table (20% discount when booked through Rover.com)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS rover BOOLEAN DEFAULT FALSE
+    `)
+    console.log('✓ Added rover flag to stays')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
