@@ -398,6 +398,22 @@ function BillView({ billCode }) {
           </div>
         </div>
 
+        {/* Personal Message */}
+        <div style={{
+          background: '#f8f9fa',
+          padding: '24px',
+          borderRadius: '8px',
+          marginBottom: '32px',
+          borderLeft: '4px solid #f472b6'
+        }}>
+          <p style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#2c3e50' }}>
+            Hello {allDogNames[0] || 'Customer'},
+          </p>
+          <p style={{ margin: '0', fontSize: '15px', color: '#555', lineHeight: '1.6' }}>
+            Thank you so much for choosing Lily's Dog Boarding! We hope you have a wonderful stay with us. We look forward to seeing you!
+          </p>
+        </div>
+
         {/* Status Badge */}
         <div style={{ textAlign: 'center', marginTop: '32px' }}>
           {bill.status === 'paid' ? (
