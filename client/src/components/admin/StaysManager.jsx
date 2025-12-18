@@ -606,7 +606,7 @@ function StaysManager() {
                     <td><strong>{stay.dog_name}</strong></td>
                     <td>{stay.customer_name}</td>
                     <td>{formatDate(stay.check_in_date)}</td>
-                    <td>{formatDate(stay.check_out_date)}</td>
+                    <td>{formatDate(stay.check_in_date)}</td>
                     <td>{stay.days_count} days</td>
                     <td>{stay.rate_type === 'holiday' ? '🎄 Holiday' : 'Regular'}</td>
                     <td>
