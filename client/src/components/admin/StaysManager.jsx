@@ -560,8 +560,8 @@ function StaysManager() {
               <th>Photo</th>
               <th>Dog</th>
               <th>Owner</th>
-              <th>Check-In</th>
-              <th>Check-Out</th>
+              <th>Due Date</th>
+              <th>Payment Due Date</th>
               <th>Days</th>
               <th>Rate</th>
               <th>Services</th>
