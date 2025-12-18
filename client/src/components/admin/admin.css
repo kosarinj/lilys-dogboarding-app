@@ -142,7 +142,9 @@
 .data-table-container {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
   border: 1px solid #e8e8e8;
 }
