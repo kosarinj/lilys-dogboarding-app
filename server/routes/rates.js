@@ -124,6 +124,38 @@ router.post('/initialize', async (req, res) => {
       console.log('✓ Added service_type column to rates table')
     }
 
+    // Fix the unique constraint to include service_type
+    console.log('🔧 Updating unique constraint to include service_type...')
+
+    // Drop old constraint if it exists (it's auto-named, so we need to find it)
+    const constraintCheck = await query(`
+      SELECT constraint_name
+      FROM information_schema.table_constraints
+      WHERE table_name = 'rates' AND constraint_type = 'UNIQUE'
+    `)
+
+    for (const row of constraintCheck.rows) {
+      const constraintName = row.constraint_name
+      console.log(`Dropping old constraint: ${constraintName}`)
+      try {
+        await query(`ALTER TABLE rates DROP CONSTRAINT IF EXISTS ${constraintName}`)
+      } catch (err) {
+        console.log(`Could not drop constraint ${constraintName}:`, err.message)
+      }
+    }
+
+    // Add new constraint that includes service_type
+    try {
+      await query(`
+        ALTER TABLE rates ADD CONSTRAINT rates_unique_key
+        UNIQUE (dog_size, rate_type, service_type)
+      `)
+      console.log('✓ Added new unique constraint with service_type')
+    } catch (err) {
+      // Constraint might already exist
+      console.log('Unique constraint might already exist:', err.message)
+    }
+
     for (const serviceType of serviceTypes) {
       for (const size of sizes) {
         for (const rateType of rateTypes) {
