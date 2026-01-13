@@ -148,11 +148,14 @@ router.post('/', async (req, res) => {
     const fees = await getFees()
 
     // Calculate fees
-    const dropoff_fee = requires_dropoff ? fees.dropoff : 0
-    const pickup_fee = requires_pickup ? fees.pickup : 0
+    // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
+    // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
+    const fee_multiplier = stay_type === 'daycare' ? days_count : 1
+    const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
+    const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Total cost = (daily rate × days) + dropoff fee + pickup fee + extra charge
+    // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
     const boarding_cost = daily_rate * days_count
     const total_cost = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
 
@@ -246,11 +249,14 @@ router.put('/:id', async (req, res) => {
     const fees = await getFees()
 
     // Calculate fees
-    const dropoff_fee = requires_dropoff ? fees.dropoff : 0
-    const pickup_fee = requires_pickup ? fees.pickup : 0
+    // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
+    // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
+    const fee_multiplier = stay_type === 'daycare' ? days_count : 1
+    const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
+    const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Total cost = (daily rate × days) + dropoff fee + pickup fee + extra charge
+    // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
     const boarding_cost = daily_rate * days_count
     const calculated_total = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
 

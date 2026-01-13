@@ -214,28 +214,31 @@ function StaysManager() {
 
     let total
 
+    // Calculate days first to use in fee calculations
+    let days
+    if (formData.stay_type === 'daycare' && formData.days_count) {
+      days = parseInt(formData.days_count)
+    } else {
+      const checkIn = new Date(formData.check_in_date)
+      const checkOut = new Date(formData.check_out_date)
+      days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+    }
+
+    // For daycare: multiply fees by days (each day needs drop-off/pick-up)
+    // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
+    const feeMultiplier = formData.stay_type === 'daycare' ? days : 1
+
     // If special price is set, use that
     if (formData.special_price && parseFloat(formData.special_price) > 0) {
       const specialPrice = parseFloat(formData.special_price)
-      const pickupFee = formData.requires_pickup ? getPickupFee() : 0
-      const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+      const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
+      const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
       total = specialPrice + pickupFee + dropoffFee + extraCharge
     } else {
       // Get selected dog
       const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
       if (!selectedDog) return null
-
-      // Calculate days
-      // For daycare, use manual days_count if provided, otherwise calculate from date range
-      let days
-      if (formData.stay_type === 'daycare' && formData.days_count) {
-        days = parseInt(formData.days_count)
-      } else {
-        const checkIn = new Date(formData.check_in_date)
-        const checkOut = new Date(formData.check_out_date)
-        days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
-      }
 
       // Find the appropriate rate
       const rate = rates.find(r =>
@@ -248,8 +251,8 @@ function StaysManager() {
 
       // Calculate costs
       const baseCost = days * parseFloat(rate.price_per_day)
-      const pickupFee = formData.requires_pickup ? getPickupFee() : 0
-      const dropoffFee = formData.requires_dropoff ? getDropoffFee() : 0
+      const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
+      const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
 
       total = baseCost + pickupFee + dropoffFee + extraCharge
