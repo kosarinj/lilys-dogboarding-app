@@ -155,6 +155,18 @@ router.post('/', async (req, res) => {
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
+    console.log('Fee calculation debug:', {
+      stay_type,
+      days_count,
+      fee_multiplier,
+      base_dropoff: fees.dropoff,
+      base_pickup: fees.pickup,
+      calculated_dropoff_fee: dropoff_fee,
+      calculated_pickup_fee: pickup_fee,
+      requires_dropoff,
+      requires_pickup
+    })
+
     // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
     const boarding_cost = daily_rate * days_count
     const total_cost = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
@@ -255,6 +267,18 @@ router.put('/:id', async (req, res) => {
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
+
+    console.log('Fee calculation debug (UPDATE):', {
+      stay_type,
+      days_count,
+      fee_multiplier,
+      base_dropoff: fees.dropoff,
+      base_pickup: fees.pickup,
+      calculated_dropoff_fee: dropoff_fee,
+      calculated_pickup_fee: pickup_fee,
+      requires_dropoff,
+      requires_pickup
+    })
 
     // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
     const boarding_cost = daily_rate * days_count
