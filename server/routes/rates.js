@@ -70,6 +70,18 @@ router.put('/:id', async (req, res) => {
 // POST /api/rates/initialize - Initialize all missing rates
 router.post('/initialize', async (req, res) => {
   try {
+    console.log('🔧 Initializing rates...')
+
+    // First check if service_type column exists
+    const columnCheck = await query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name='rates' AND column_name='service_type'
+    `)
+
+    const hasServiceType = columnCheck.rows.length > 0
+    console.log('service_type column exists?', hasServiceType)
+
     const sizes = ['small', 'medium', 'large']
     const rateTypes = ['regular', 'holiday']
     const serviceTypes = ['boarding', 'daycare']
@@ -91,30 +103,60 @@ router.post('/initialize', async (req, res) => {
     let created = 0
     let existing = 0
 
+    if (!hasServiceType) {
+      // If service_type column doesn't exist, create it first
+      console.log('⚠️  service_type column missing, creating it...')
+
+      // Create enum type if it doesn't exist
+      await query(`
+        DO $$ BEGIN
+          CREATE TYPE stay_type AS ENUM ('boarding', 'daycare');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `)
+
+      // Add column
+      await query(`
+        ALTER TABLE rates ADD COLUMN IF NOT EXISTS service_type stay_type DEFAULT 'boarding'
+      `)
+
+      console.log('✓ Added service_type column to rates table')
+    }
+
     for (const serviceType of serviceTypes) {
       for (const size of sizes) {
         for (const rateType of rateTypes) {
-          // Check if rate already exists
-          const checkResult = await query(
-            'SELECT id FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
-            [size, rateType, serviceType]
-          )
-
-          if (checkResult.rows.length === 0) {
-            // Create the rate
-            const price = defaultPrices[serviceType][size][rateType]
-            await query(
-              `INSERT INTO rates (dog_size, rate_type, service_type, price_per_day)
-               VALUES ($1, $2, $3, $4)`,
-              [size, rateType, serviceType, price]
+          try {
+            // Check if rate already exists
+            const checkResult = await query(
+              'SELECT id FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+              [size, rateType, serviceType]
             )
-            created++
-          } else {
-            existing++
+
+            if (checkResult.rows.length === 0) {
+              // Create the rate
+              const price = defaultPrices[serviceType][size][rateType]
+              console.log(`Creating rate: ${serviceType} ${size} ${rateType} = $${price}`)
+
+              await query(
+                `INSERT INTO rates (dog_size, rate_type, service_type, price_per_day)
+                 VALUES ($1, $2, $3, $4)`,
+                [size, rateType, serviceType, price]
+              )
+              created++
+            } else {
+              existing++
+            }
+          } catch (err) {
+            console.error(`Error creating rate ${serviceType} ${size} ${rateType}:`, err.message)
+            throw err
           }
         }
       }
     }
+
+    console.log(`✅ Rates initialized: ${created} created, ${existing} already existed`)
 
     res.json({
       success: true,
@@ -123,8 +165,12 @@ router.post('/initialize', async (req, res) => {
       existing
     })
   } catch (error) {
-    console.error('Error initializing rates:', error)
-    res.status(500).json({ error: error.message })
+    console.error('❌ Error initializing rates:', error)
+    console.error('Error details:', error.stack)
+    res.status(500).json({
+      error: error.message,
+      details: error.stack
+    })
   }
 })
 
