@@ -30,7 +30,8 @@ export const dogsAPI = {
 // Rates API
 export const ratesAPI = {
   getAll: () => api.get('/rates'),
-  update: (id, data) => api.put(`/rates/${id}`, data)
+  update: (id, data) => api.put(`/rates/${id}`, data),
+  initialize: () => api.post('/rates/initialize')
 }
 
 // Settings API

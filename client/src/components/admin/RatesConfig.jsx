@@ -90,6 +90,21 @@ function RatesConfig() {
     return ratesList.find(rate => rate.dog_size === size)
   }
 
+  const handleInitializeRates = async () => {
+    if (!confirm('This will create any missing rates with default prices. Continue?')) return
+    try {
+      setLoading(true)
+      const response = await ratesAPI.initialize()
+      alert(response.data.message)
+      loadRates()
+    } catch (err) {
+      setError('Failed to initialize rates. Please try again.')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (loading) return <div className="loading-state">Loading rates...</div>
 
   const boardingRegular = getRatesByTypeAndService('regular', 'boarding')
@@ -106,6 +121,15 @@ function RatesConfig() {
             Set daily rates by dog size and season (applies to both Boarding and Daycare)
           </p>
         </div>
+        {(boardingRegular.length === 0 || daycareRegular.length === 0) && (
+          <button
+            onClick={handleInitializeRates}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            + Initialize Missing Rates
+          </button>
+        )}
       </div>
 
       {error && (

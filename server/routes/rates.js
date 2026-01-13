@@ -67,4 +67,65 @@ router.put('/:id', async (req, res) => {
   }
 })
 
+// POST /api/rates/initialize - Initialize all missing rates
+router.post('/initialize', async (req, res) => {
+  try {
+    const sizes = ['small', 'medium', 'large']
+    const rateTypes = ['regular', 'holiday']
+    const serviceTypes = ['boarding', 'daycare']
+
+    // Default prices (can be adjusted)
+    const defaultPrices = {
+      boarding: {
+        small: { regular: 40.00, holiday: 60.00 },
+        medium: { regular: 50.00, holiday: 75.00 },
+        large: { regular: 60.00, holiday: 90.00 }
+      },
+      daycare: {
+        small: { regular: 30.00, holiday: 45.00 },
+        medium: { regular: 35.00, holiday: 52.50 },
+        large: { regular: 40.00, holiday: 60.00 }
+      }
+    }
+
+    let created = 0
+    let existing = 0
+
+    for (const serviceType of serviceTypes) {
+      for (const size of sizes) {
+        for (const rateType of rateTypes) {
+          // Check if rate already exists
+          const checkResult = await query(
+            'SELECT id FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+            [size, rateType, serviceType]
+          )
+
+          if (checkResult.rows.length === 0) {
+            // Create the rate
+            const price = defaultPrices[serviceType][size][rateType]
+            await query(
+              `INSERT INTO rates (dog_size, rate_type, service_type, price_per_day)
+               VALUES ($1, $2, $3, $4)`,
+              [size, rateType, serviceType, price]
+            )
+            created++
+          } else {
+            existing++
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Initialized rates: ${created} created, ${existing} already existed`,
+      created,
+      existing
+    })
+  } catch (error) {
+    console.error('Error initializing rates:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 export default router
