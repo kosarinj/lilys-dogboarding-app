@@ -27,7 +27,24 @@ router.get('/', async (req, res) => {
       JOIN customers c ON d.customer_id = c.id
       ORDER BY s.check_in_date DESC
     `)
-    res.json(result.rows)
+
+    // Update status based on current date
+    const now = new Date()
+    const stays = result.rows.map(stay => {
+      const checkIn = new Date(stay.check_in_date)
+      const checkOut = new Date(stay.check_out_date)
+
+      let status = 'upcoming'
+      if (checkIn <= now && checkOut >= now) {
+        status = 'active'
+      } else if (checkOut < now) {
+        status = 'completed'
+      }
+
+      return { ...stay, status }
+    })
+
+    res.json(stays)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -48,7 +65,21 @@ router.get('/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Stay not found' })
     }
-    res.json(result.rows[0])
+
+    // Update status based on current date
+    const stay = result.rows[0]
+    const now = new Date()
+    const checkIn = new Date(stay.check_in_date)
+    const checkOut = new Date(stay.check_out_date)
+
+    let status = 'upcoming'
+    if (checkIn <= now && checkOut >= now) {
+      status = 'active'
+    } else if (checkOut < now) {
+      status = 'completed'
+    }
+
+    res.json({ ...stay, status })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
