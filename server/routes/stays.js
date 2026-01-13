@@ -88,12 +88,12 @@ router.get('/:id', async (req, res) => {
 // POST /api/stays
 router.post('/', async (req, res) => {
   try {
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, days_count: manual_days_count } = req.body
 
-    // Calculate days
+    // Calculate days from date range
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let calculated_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
     // If checkout time is after checkin time, add 1 day (staying past normal checkin time)
     if (check_in_time && check_out_time) {
@@ -104,18 +104,22 @@ router.post('/', async (req, res) => {
 
       if (outMinutes > inMinutes) {
         // Checkout time is after checkin time, so add an extra day
-        days_count += 1
+        calculated_days += 1
       }
     }
 
-    // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
-    // For boarding, check-out must be after check-in (at least 1 night)
+    // For daycare, allow manual days_count override (for non-consecutive days within date range)
+    // For boarding, always use calculated days from date range
+    let days_count
     if (stay_type === 'daycare') {
+      // Use manual days_count if provided, otherwise use calculated
+      days_count = manual_days_count ? parseInt(manual_days_count) : calculated_days
       if (days_count === 0) {
         days_count = 1 // Same day counts as 1 day for daycare
       }
     } else {
-      // Boarding requires at least 1 night
+      // Boarding: always use calculated days (must be consecutive nights)
+      days_count = calculated_days
       if (days_count <= 0) {
         return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
       }
@@ -185,12 +189,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, days_count: manual_days_count } = req.body
 
-    // Calculate days
+    // Calculate days from date range
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    let days_count = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let calculated_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
     // If checkout time is after checkin time, add 1 day (staying past normal checkin time)
     if (check_in_time && check_out_time) {
@@ -201,18 +205,22 @@ router.put('/:id', async (req, res) => {
 
       if (outMinutes > inMinutes) {
         // Checkout time is after checkin time, so add an extra day
-        days_count += 1
+        calculated_days += 1
       }
     }
 
-    // For daycare, same-day check-in/check-out is allowed (counts as 1 day)
-    // For boarding, check-out must be after check-in (at least 1 night)
+    // For daycare, allow manual days_count override (for non-consecutive days within date range)
+    // For boarding, always use calculated days from date range
+    let days_count
     if (stay_type === 'daycare') {
+      // Use manual days_count if provided, otherwise use calculated
+      days_count = manual_days_count ? parseInt(manual_days_count) : calculated_days
       if (days_count === 0) {
         days_count = 1 // Same day counts as 1 day for daycare
       }
     } else {
-      // Boarding requires at least 1 night
+      // Boarding: always use calculated days (must be consecutive nights)
+      days_count = calculated_days
       if (days_count <= 0) {
         return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
       }

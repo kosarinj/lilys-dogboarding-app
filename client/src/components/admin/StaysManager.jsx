@@ -19,6 +19,7 @@ function StaysManager() {
     check_out_time: '',
     stay_type: 'boarding',
     rate_type: 'regular',
+    days_count: '',
     special_price: '',
     special_price_comments: '',
     notes: '',
@@ -83,6 +84,7 @@ function StaysManager() {
         check_out_time: '',
         stay_type: 'boarding',
         rate_type: 'regular',
+        days_count: '',
         special_price: '',
         special_price_comments: '',
         notes: '',
@@ -112,6 +114,7 @@ function StaysManager() {
       check_out_time: stay.check_out_time || '',
       stay_type: stay.stay_type || 'boarding',
       rate_type: stay.rate_type,
+      days_count: stay.days_count || '',
       special_price: stay.special_price || '',
       special_price_comments: stay.special_price_comments || '',
       notes: stay.notes || '',
@@ -146,6 +149,7 @@ function StaysManager() {
       check_out_time: '',
       stay_type: 'boarding',
       rate_type: 'regular',
+      days_count: '',
       special_price: '',
       notes: '',
       status: 'upcoming',
@@ -223,9 +227,15 @@ function StaysManager() {
       if (!selectedDog) return null
 
       // Calculate days
-      const checkIn = new Date(formData.check_in_date)
-      const checkOut = new Date(formData.check_out_date)
-      const days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+      // For daycare, use manual days_count if provided, otherwise calculate from date range
+      let days
+      if (formData.stay_type === 'daycare' && formData.days_count) {
+        days = parseInt(formData.days_count)
+      } else {
+        const checkIn = new Date(formData.check_in_date)
+        const checkOut = new Date(formData.check_out_date)
+        days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+      }
 
       // Find the appropriate rate
       const rate = rates.find(r =>
@@ -436,6 +446,23 @@ function StaysManager() {
                 </div>
               )}
             </div>
+
+            {formData.stay_type === 'daycare' && (
+              <div className="form-group">
+                <label className="form-label">Number of Daycare Days (Optional)</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-input"
+                  value={formData.days_count}
+                  onChange={(e) => setFormData({ ...formData, days_count: e.target.value })}
+                  placeholder="Leave blank to use date range"
+                />
+                <p style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                  For daycare with a date range but non-consecutive days, specify the actual number of days. Leave blank to auto-calculate from check-in/check-out dates.
+                </p>
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Special Price (Optional)</label>
