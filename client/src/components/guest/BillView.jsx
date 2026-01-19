@@ -414,6 +414,27 @@ function BillView({ billCode }) {
           </p>
         </div>
 
+        {/* Payment Info */}
+        <div style={{
+          background: 'linear-gradient(135deg, #fff4f6 0%, #fef5f8 100%)',
+          padding: '24px',
+          borderRadius: '8px',
+          marginBottom: '32px',
+          border: '1px solid #ffc9d9'
+        }}>
+          <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '12px' }}>
+            Payment Information
+          </div>
+          <div style={{ fontSize: '13px', color: '#2c3e50', marginBottom: '12px', fontStyle: 'italic' }}>
+            All services are paid in advance
+          </div>
+          <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
+            <div><strong>Cash:</strong> Accepted</div>
+            <div><strong>Venmo:</strong> @lilykos</div>
+            <div><strong>Zelle:</strong> lilykos@me.com</div>
+          </div>
+        </div>
+
         {/* Status Badge */}
         <div style={{ textAlign: 'center', marginTop: '32px' }}>
           {bill.status === 'paid' ? (
