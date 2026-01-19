@@ -5,14 +5,31 @@ const router = express.Router()
 
 // Helper function to get fees from settings
 async function getFees() {
-  const result = await query('SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($1, $2)', ['dropoff_fee', 'pickup_fee'])
+  const result = await query(`SELECT setting_key, setting_value FROM settings WHERE setting_key IN (
+    'dropoff_fee', 'pickup_fee',
+    'boarding_puppy_fee_regular', 'boarding_puppy_fee_holiday',
+    'daycare_puppy_fee_regular', 'daycare_puppy_fee_holiday'
+  )`)
   const fees = {}
   result.rows.forEach(row => {
     fees[row.setting_key] = parseFloat(row.setting_value)
   })
   return {
     dropoff: fees.dropoff_fee || 15.00,
-    pickup: fees.pickup_fee || 15.00
+    pickup: fees.pickup_fee || 15.00,
+    boardingPuppyRegular: fees.boarding_puppy_fee_regular || 0,
+    boardingPuppyHoliday: fees.boarding_puppy_fee_holiday || 0,
+    daycarePuppyRegular: fees.daycare_puppy_fee_regular || 0,
+    daycarePuppyHoliday: fees.daycare_puppy_fee_holiday || 0
+  }
+}
+
+// Helper function to get puppy fee based on stay type and rate type
+function getPuppyFee(fees, stay_type, rate_type) {
+  if (stay_type === 'boarding') {
+    return rate_type === 'holiday' ? fees.boardingPuppyHoliday : fees.boardingPuppyRegular
+  } else {
+    return rate_type === 'holiday' ? fees.daycarePuppyHoliday : fees.daycarePuppyRegular
   }
 }
 
@@ -88,7 +105,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/stays
 router.post('/', async (req, res) => {
   try {
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, days_count: manual_days_count } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, is_puppy, days_count: manual_days_count } = req.body
 
     // Calculate days from date range
     const checkIn = new Date(check_in_date)
@@ -154,6 +171,7 @@ router.post('/', async (req, res) => {
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
 
     console.log('Fee calculation debug:', {
       stay_type,
@@ -163,13 +181,15 @@ router.post('/', async (req, res) => {
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
       calculated_pickup_fee: pickup_fee,
+      puppy_fee,
+      is_puppy,
       requires_dropoff,
       requires_pickup
     })
 
-    // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
+    // Total cost = (daily rate × days) + fees + puppy fee + extra charge
     const boarding_cost = daily_rate * days_count
-    const total_cost = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
+    const total_cost = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Determine status based on dates
     const now = new Date()
@@ -189,9 +209,9 @@ router.post('/', async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO stays (dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, days_count, daily_rate, total_cost, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge, extra_charge_comments, rover)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *`,
-      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false]
+      `INSERT INTO stays (dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, days_count, daily_rate, total_cost, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge, extra_charge_comments, rover, is_puppy, puppy_fee)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *`,
+      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false, is_puppy || false, puppy_fee]
     )
 
     res.status(201).json(result.rows[0])
@@ -204,7 +224,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, days_count: manual_days_count } = req.body
+    const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, is_puppy, days_count: manual_days_count } = req.body
 
     // Calculate days from date range
     const checkIn = new Date(check_in_date)
@@ -267,6 +287,7 @@ router.put('/:id', async (req, res) => {
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
 
     console.log('Fee calculation debug (UPDATE):', {
       stay_type,
@@ -276,13 +297,15 @@ router.put('/:id', async (req, res) => {
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
       calculated_pickup_fee: pickup_fee,
+      puppy_fee,
+      is_puppy,
       requires_dropoff,
       requires_pickup
     })
 
-    // Total cost = (daily rate × days) + (dropoff fee × days) + (pickup fee × days) + extra charge
+    // Total cost = (daily rate × days) + fees + puppy fee + extra charge
     const boarding_cost = daily_rate * days_count
-    const calculated_total = boarding_cost + dropoff_fee + pickup_fee + extra_charge_amount
+    const calculated_total = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Use special_price if provided, otherwise use calculated total_cost
     let final_total = special_price ? parseFloat(special_price) : calculated_total
@@ -297,9 +320,10 @@ router.put('/:id', async (req, res) => {
        SET dog_id = $1, check_in_date = $2, check_out_date = $3, check_in_time = $4, check_out_time = $5,
            stay_type = $6, rate_type = $7, days_count = $8, daily_rate = $9, total_cost = $10,
            special_price = $11, special_price_comments = $12, notes = $13, status = $14, requires_dropoff = $15, requires_pickup = $16,
-           dropoff_fee = $17, pickup_fee = $18, extra_charge = $19, extra_charge_comments = $20, rover = $21, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $22 RETURNING *`,
-      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false, id]
+           dropoff_fee = $17, pickup_fee = $18, extra_charge = $19, extra_charge_comments = $20, rover = $21,
+           is_puppy = $22, puppy_fee = $23, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $24 RETURNING *`,
+      [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false, is_puppy || false, puppy_fee, id]
     )
 
     if (result.rows.length === 0) {
@@ -321,6 +345,44 @@ router.delete('/:id', async (req, res) => {
     }
     res.json({ message: 'Stay deleted successfully' })
   } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST /api/stays/migrate - Add missing columns to stays table
+router.post('/migrate', async (req, res) => {
+  try {
+    const migrations = [
+      { column: 'is_puppy', type: 'BOOLEAN DEFAULT false' },
+      { column: 'puppy_fee', type: 'DECIMAL(10,2) DEFAULT 0' }
+    ]
+
+    let added = []
+    let existing = []
+
+    for (const migration of migrations) {
+      const columnCheck = await query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'stays' AND column_name = $1
+      `, [migration.column])
+
+      if (columnCheck.rows.length === 0) {
+        await query(`ALTER TABLE stays ADD COLUMN ${migration.column} ${migration.type}`)
+        added.push(migration.column)
+        console.log(`Added column: ${migration.column}`)
+      } else {
+        existing.push(migration.column)
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Migration complete: ${added.length} columns added, ${existing.length} already existed`,
+      added,
+      existing
+    })
+  } catch (error) {
+    console.error('Migration error:', error)
     res.status(500).json({ error: error.message })
   }
 })

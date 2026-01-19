@@ -49,7 +49,8 @@ export const staysAPI = {
   getById: (id) => api.get(`/stays/${id}`),
   create: (data) => api.post('/stays', data),
   update: (id, data) => api.put(`/stays/${id}`, data),
-  delete: (id) => api.delete(`/stays/${id}`)
+  delete: (id) => api.delete(`/stays/${id}`),
+  migrate: () => api.post('/stays/migrate')
 }
 
 // Bills API

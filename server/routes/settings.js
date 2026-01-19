@@ -61,8 +61,10 @@ router.post('/initialize', async (req, res) => {
     const defaultSettings = [
       { key: 'dropoff_fee', value: 15.00, description: 'Fee for drop-off service' },
       { key: 'pickup_fee', value: 15.00, description: 'Fee for pick-up service' },
-      { key: 'boarding_puppy_fee', value: 10.00, description: 'Additional daily fee for puppies (boarding)' },
-      { key: 'daycare_puppy_fee', value: 10.00, description: 'Additional daily fee for puppies (daycare)' }
+      { key: 'boarding_puppy_fee_regular', value: 10.00, description: 'Additional daily fee for puppies (boarding - regular)' },
+      { key: 'boarding_puppy_fee_holiday', value: 15.00, description: 'Additional daily fee for puppies (boarding - holiday)' },
+      { key: 'daycare_puppy_fee_regular', value: 10.00, description: 'Additional daily fee for puppies (daycare - regular)' },
+      { key: 'daycare_puppy_fee_holiday', value: 15.00, description: 'Additional daily fee for puppies (daycare - holiday)' }
     ]
 
     let created = 0

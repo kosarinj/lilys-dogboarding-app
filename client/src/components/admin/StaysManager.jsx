@@ -6,7 +6,14 @@ function StaysManager() {
   const [stays, setStays] = useState([])
   const [dogs, setDogs] = useState([])
   const [rates, setRates] = useState([])
-  const [fees, setFees] = useState({ dropoff: 20, pickup: 20 })
+  const [fees, setFees] = useState({
+    dropoff: 20,
+    pickup: 20,
+    boardingPuppyRegular: 0,
+    boardingPuppyHoliday: 0,
+    daycarePuppyRegular: 0,
+    daycarePuppyHoliday: 0
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -28,7 +35,8 @@ function StaysManager() {
     requires_pickup: false,
     extra_charge: '',
     extra_charge_comments: '',
-    rover: false
+    rover: false,
+    is_puppy: false
   })
 
   useEffect(() => {
@@ -52,10 +60,18 @@ function StaysManager() {
       const settings = settingsRes.data
       const dropoffSetting = settings.find(s => s.setting_key === 'dropoff_fee')
       const pickupSetting = settings.find(s => s.setting_key === 'pickup_fee')
+      const boardingPuppyRegularSetting = settings.find(s => s.setting_key === 'boarding_puppy_fee_regular')
+      const boardingPuppyHolidaySetting = settings.find(s => s.setting_key === 'boarding_puppy_fee_holiday')
+      const daycarePuppyRegularSetting = settings.find(s => s.setting_key === 'daycare_puppy_fee_regular')
+      const daycarePuppyHolidaySetting = settings.find(s => s.setting_key === 'daycare_puppy_fee_holiday')
 
       setFees({
         dropoff: dropoffSetting ? parseFloat(dropoffSetting.setting_value) : 20,
-        pickup: pickupSetting ? parseFloat(pickupSetting.setting_value) : 20
+        pickup: pickupSetting ? parseFloat(pickupSetting.setting_value) : 20,
+        boardingPuppyRegular: boardingPuppyRegularSetting ? parseFloat(boardingPuppyRegularSetting.setting_value) : 0,
+        boardingPuppyHoliday: boardingPuppyHolidaySetting ? parseFloat(boardingPuppyHolidaySetting.setting_value) : 0,
+        daycarePuppyRegular: daycarePuppyRegularSetting ? parseFloat(daycarePuppyRegularSetting.setting_value) : 0,
+        daycarePuppyHoliday: daycarePuppyHolidaySetting ? parseFloat(daycarePuppyHolidaySetting.setting_value) : 0
       })
 
       setError(null)
@@ -93,7 +109,8 @@ function StaysManager() {
         requires_pickup: false,
         extra_charge: '',
         extra_charge_comments: '',
-        rover: false
+        rover: false,
+        is_puppy: false
       })
       setShowForm(false)
       setEditingStay(null)
@@ -123,7 +140,8 @@ function StaysManager() {
       requires_pickup: stay.requires_pickup || false,
       extra_charge: stay.extra_charge || '',
       extra_charge_comments: stay.extra_charge_comments || '',
-      rover: stay.rover || false
+      rover: stay.rover || false,
+      is_puppy: stay.is_puppy || false
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -157,7 +175,8 @@ function StaysManager() {
       requires_pickup: false,
       extra_charge: '',
       extra_charge_comments: '',
-      rover: false
+      rover: false,
+      is_puppy: false
     })
     setShowForm(false)
     setEditingStay(null)
@@ -206,6 +225,15 @@ function StaysManager() {
     }).format(amount)
   }
 
+  // Get puppy fee based on stay type and rate type
+  const getPuppyFee = () => {
+    if (formData.stay_type === 'boarding') {
+      return formData.rate_type === 'holiday' ? fees.boardingPuppyHoliday : fees.boardingPuppyRegular
+    } else {
+      return formData.rate_type === 'holiday' ? fees.daycarePuppyHoliday : fees.daycarePuppyRegular
+    }
+  }
+
   // Calculate estimated total for booking form
   const calculateEstimatedTotal = () => {
     if (!formData.dog_id || !formData.check_in_date || !formData.check_out_date) {
@@ -234,28 +262,35 @@ function StaysManager() {
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      total = specialPrice + pickupFee + dropoffFee + extraCharge
+      const puppyFee = formData.is_puppy ? getPuppyFee() * days : 0
+      total = specialPrice + pickupFee + dropoffFee + extraCharge + puppyFee
     } else {
       // Get selected dog
       const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
       if (!selectedDog) return null
 
-      // Find the appropriate rate
-      const rate = rates.find(r =>
-        r.dog_size === selectedDog.size &&
-        r.rate_type === formData.rate_type &&
-        (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
-      )
-
-      if (!rate) return null
+      // Use custom daily rate if set, otherwise find the appropriate rate
+      let dailyRate
+      if (selectedDog.custom_daily_rate) {
+        dailyRate = parseFloat(selectedDog.custom_daily_rate)
+      } else {
+        const rate = rates.find(r =>
+          r.dog_size === selectedDog.size &&
+          r.rate_type === formData.rate_type &&
+          (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
+        )
+        if (!rate) return null
+        dailyRate = parseFloat(rate.price_per_day)
+      }
 
       // Calculate costs
-      const baseCost = days * parseFloat(rate.price_per_day)
+      const baseCost = days * dailyRate
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
+      const puppyFee = formData.is_puppy ? getPuppyFee() * days : 0
 
-      total = baseCost + pickupFee + dropoffFee + extraCharge
+      total = baseCost + pickupFee + dropoffFee + extraCharge + puppyFee
     }
 
     // Apply 20% Rover discount if checked
@@ -498,7 +533,7 @@ function StaysManager() {
 
             <div className="form-group">
               <label className="form-label">Additional Services</label>
-              <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '20px', marginTop: '8px', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
@@ -516,6 +551,17 @@ function StaysManager() {
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
                   <span>Pick-up (${fees.pickup.toFixed(2)})</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.is_puppy}
+                    onChange={(e) => setFormData({ ...formData, is_puppy: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ color: formData.is_puppy ? '#ec4899' : 'inherit', fontWeight: formData.is_puppy ? '600' : 'normal' }}>
+                    🐶 Puppy (+${getPuppyFee().toFixed(2)}/day)
+                  </span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
