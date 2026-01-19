@@ -647,9 +647,9 @@ function RatesConfig() {
           ))}
         </div>
 
-        {settings.filter(s => s.setting_key.includes('puppy_fee')).length === 0 && (
+        {settings.filter(s => s.setting_key === 'boarding_puppy_fee_regular').length === 0 && (
           <div style={{ textAlign: 'center', padding: '20px', color: '#7f8c8d' }}>
-            <p>Puppy fee settings not found. Click below to initialize them.</p>
+            <p>Puppy fee settings not found or need updating. Click below to initialize them.</p>
             <button
               onClick={async () => {
                 try {
