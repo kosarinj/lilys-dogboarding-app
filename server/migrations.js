@@ -151,6 +151,33 @@ export async function runMigrations() {
     `)
     console.log('✓ Added rover flag to stays')
 
+    // Add is_puppy and puppy_fee to stays table
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS is_puppy BOOLEAN DEFAULT FALSE
+    `)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS puppy_fee DECIMAL(10,2) DEFAULT 0
+    `)
+    console.log('✓ Added is_puppy and puppy_fee to stays')
+
+    // Add custom_daily_rate to dogs table
+    await query(`
+      ALTER TABLE dogs ADD COLUMN IF NOT EXISTS custom_daily_rate DECIMAL(10,2)
+    `)
+    console.log('✓ Added custom_daily_rate to dogs')
+
+    // Add puppy fee settings
+    await query(`
+      INSERT INTO settings (setting_key, setting_value, description)
+      VALUES
+        ('boarding_puppy_fee_regular', 10.00, 'Additional daily fee for puppies (boarding - regular)'),
+        ('boarding_puppy_fee_holiday', 15.00, 'Additional daily fee for puppies (boarding - holiday)'),
+        ('daycare_puppy_fee_regular', 10.00, 'Additional daily fee for puppies (daycare - regular)'),
+        ('daycare_puppy_fee_holiday', 15.00, 'Additional daily fee for puppies (daycare - holiday)')
+      ON CONFLICT (setting_key) DO NOTHING
+    `)
+    console.log('✓ Added puppy fee settings')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
