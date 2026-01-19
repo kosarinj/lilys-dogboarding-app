@@ -24,7 +24,8 @@ export const dogsAPI = {
   getById: (id) => api.get(`/dogs/${id}`),
   create: (data) => api.post('/dogs', data),
   update: (id, data) => api.put(`/dogs/${id}`, data),
-  delete: (id) => api.delete(`/dogs/${id}`)
+  delete: (id) => api.delete(`/dogs/${id}`),
+  migrate: () => api.post('/dogs/migrate')
 }
 
 // Rates API
@@ -38,7 +39,8 @@ export const ratesAPI = {
 export const settingsAPI = {
   getAll: () => api.get('/settings'),
   getByKey: (key) => api.get(`/settings/${key}`),
-  update: (key, data) => api.put(`/settings/${key}`, data)
+  update: (key, data) => api.put(`/settings/${key}`, data),
+  initialize: () => api.post('/settings/initialize')
 }
 
 // Stays API

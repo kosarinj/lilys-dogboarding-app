@@ -440,6 +440,137 @@ function RatesConfig() {
         </div>
       </div>
 
+      {/* Puppy Fees Section */}
+      <div className="form-card" style={{ marginTop: '24px' }}>
+        <h2 style={{ marginBottom: '16px', fontSize: '18px' }}>🐶 Puppy Fees</h2>
+        <p style={{ fontSize: '14px', color: '#7f8c8d', marginBottom: '20px' }}>
+          Additional daily fee for puppies (added on top of regular rates)
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {settings.filter(s => s.setting_key === 'boarding_puppy_fee').map(setting => (
+            <div key={setting.setting_key} style={{
+              padding: '16px',
+              background: '#fff4f6',
+              borderRadius: '8px',
+              border: '1px solid #ffc9d9'
+            }}>
+              <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+                🏠 Boarding Puppy Fee
+              </div>
+              {editingSetting === setting.setting_key ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editSettingValue}
+                    onChange={(e) => setEditSettingValue(e.target.value)}
+                    style={{
+                      width: '80px',
+                      padding: '6px 10px',
+                      fontSize: '16px',
+                      border: '2px solid var(--theme-primary, #f472b6)',
+                      borderRadius: '6px'
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={() => handleSaveSetting(setting.setting_key)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                    Save
+                  </button>
+                  <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                    {formatCurrency(setting.setting_value)}
+                    <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / day</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+                    Extra charge per day for puppies during boarding
+                  </div>
+                  <button onClick={() => handleEditSetting(setting)} className="btn btn-edit" style={{ padding: '6px 12px', marginTop: '12px' }}>
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {settings.filter(s => s.setting_key === 'daycare_puppy_fee').map(setting => (
+            <div key={setting.setting_key} style={{
+              padding: '16px',
+              background: '#fff4f6',
+              borderRadius: '8px',
+              border: '1px solid #ffc9d9'
+            }}>
+              <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '8px' }}>
+                ☀️ Daycare Puppy Fee
+              </div>
+              {editingSetting === setting.setting_key ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: '600' }}>$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editSettingValue}
+                    onChange={(e) => setEditSettingValue(e.target.value)}
+                    style={{
+                      width: '80px',
+                      padding: '6px 10px',
+                      fontSize: '16px',
+                      border: '2px solid var(--theme-primary, #f472b6)',
+                      borderRadius: '6px'
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={() => handleSaveSetting(setting.setting_key)} className="btn btn-edit" style={{ padding: '6px 12px' }}>
+                    Save
+                  </button>
+                  <button onClick={handleCancel} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>
+                    {formatCurrency(setting.setting_value)}
+                    <span style={{ fontSize: '14px', fontWeight: '400', color: '#7f8c8d' }}> / day</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '8px' }}>
+                    Extra charge per day for puppies during daycare
+                  </div>
+                  <button onClick={() => handleEditSetting(setting)} className="btn btn-edit" style={{ padding: '6px 12px', marginTop: '12px' }}>
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {settings.filter(s => s.setting_key === 'boarding_puppy_fee' || s.setting_key === 'daycare_puppy_fee').length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#7f8c8d' }}>
+            <p>Puppy fee settings not found. Click below to initialize them.</p>
+            <button
+              onClick={async () => {
+                try {
+                  await settingsAPI.initialize()
+                  loadRates()
+                } catch (err) {
+                  console.error('Failed to initialize settings:', err)
+                }
+              }}
+              className="btn btn-primary"
+              style={{ marginTop: '12px' }}
+            >
+              Initialize Puppy Fees
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Additional Services Info */}
       <div className="form-card" style={{ marginTop: '24px' }}>
         <h2 style={{ marginBottom: '16px', fontSize: '18px' }}>Additional Services</h2>

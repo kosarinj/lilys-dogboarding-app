@@ -18,6 +18,7 @@ function DogsManager() {
     location: '',
     size: 'medium',
     status: 'active',
+    custom_daily_rate: '',
     pickup_fee_override: '',
     dropoff_fee_override: '',
     food_preferences: '',
@@ -56,6 +57,7 @@ function DogsManager() {
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
         age_months: formData.age_months ? parseInt(formData.age_months) : null,
+        custom_daily_rate: formData.custom_daily_rate ? parseFloat(formData.custom_daily_rate) : null,
         pickup_fee_override: formData.pickup_fee_override ? parseFloat(formData.pickup_fee_override) : null,
         dropoff_fee_override: formData.dropoff_fee_override ? parseFloat(formData.dropoff_fee_override) : null
       }
@@ -75,6 +77,7 @@ function DogsManager() {
         location: '',
         size: 'medium',
         status: 'active',
+        custom_daily_rate: '',
         pickup_fee_override: '',
         dropoff_fee_override: '',
         food_preferences: '',
@@ -119,6 +122,7 @@ function DogsManager() {
       location: dog.location || '',
       size: dog.size,
       status: dog.status || 'active',
+      custom_daily_rate: dog.custom_daily_rate || '',
       pickup_fee_override: dog.pickup_fee_override || '',
       dropoff_fee_override: dog.dropoff_fee_override || '',
       food_preferences: dog.food_preferences || '',
@@ -151,6 +155,7 @@ function DogsManager() {
       location: '',
       size: 'medium',
       status: 'active',
+      custom_daily_rate: '',
       pickup_fee_override: '',
       dropoff_fee_override: '',
       food_preferences: '',
@@ -359,6 +364,22 @@ function DogsManager() {
                 <option value="active">Active</option>
                 <option value="deceased">Deceased ✝</option>
               </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Custom Daily Rate Override</label>
+              <input
+                type="number"
+                className="form-input"
+                value={formData.custom_daily_rate}
+                onChange={(e) => setFormData({ ...formData, custom_daily_rate: e.target.value })}
+                min="0"
+                step="0.01"
+                placeholder="Leave blank to use size-based rate"
+              />
+              <small style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                If set, this rate will be used instead of the standard rate based on dog size. Useful for puppies or special pricing.
+              </small>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>

@@ -33,7 +33,7 @@ router.put('/:key', async (req, res) => {
     const { key } = req.params
     const { setting_value } = req.body
 
-    if (!setting_value || setting_value <= 0) {
+    if (setting_value === undefined || setting_value === null || setting_value < 0) {
       return res.status(400).json({ error: 'Invalid setting_value' })
     }
 
@@ -51,6 +51,50 @@ router.put('/:key', async (req, res) => {
 
     res.json(result.rows[0])
   } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST /api/settings/initialize - Create any missing default settings
+router.post('/initialize', async (req, res) => {
+  try {
+    const defaultSettings = [
+      { key: 'dropoff_fee', value: 15.00, description: 'Fee for drop-off service' },
+      { key: 'pickup_fee', value: 15.00, description: 'Fee for pick-up service' },
+      { key: 'boarding_puppy_fee', value: 10.00, description: 'Additional daily fee for puppies (boarding)' },
+      { key: 'daycare_puppy_fee', value: 10.00, description: 'Additional daily fee for puppies (daycare)' }
+    ]
+
+    let created = 0
+    let existing = 0
+
+    for (const setting of defaultSettings) {
+      const checkResult = await query(
+        'SELECT id FROM settings WHERE setting_key = $1',
+        [setting.key]
+      )
+
+      if (checkResult.rows.length === 0) {
+        await query(
+          `INSERT INTO settings (setting_key, setting_value, description)
+           VALUES ($1, $2, $3)`,
+          [setting.key, setting.value, setting.description]
+        )
+        created++
+        console.log(`Created setting: ${setting.key} = ${setting.value}`)
+      } else {
+        existing++
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Settings initialized: ${created} created, ${existing} already existed`,
+      created,
+      existing
+    })
+  } catch (error) {
+    console.error('Error initializing settings:', error)
     res.status(500).json({ error: error.message })
   }
 })
