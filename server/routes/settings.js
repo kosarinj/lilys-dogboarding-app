@@ -67,6 +67,9 @@ router.post('/initialize', async (req, res) => {
       { key: 'daycare_puppy_fee_holiday', value: 15.00, description: 'Additional daily fee for puppies (daycare - holiday)' }
     ]
 
+    // Remove old puppy fee settings if they exist (from previous version)
+    await query(`DELETE FROM settings WHERE setting_key IN ('boarding_puppy_fee', 'daycare_puppy_fee')`)
+
     let created = 0
     let existing = 0
 
