@@ -458,9 +458,7 @@ function InvoiceView({ bill, onClose }) {
                           const displayRate = parseFloat(item.daily_rate) + puppyFeePerDay
                           return (
                             <span>
-                              {item.days_count} × {formatCurrency(displayRate)}
-                              {item.is_puppy && <span style={{ fontSize: '12px', color: '#ec4899' }}> (incl. puppy fee)</span>}
-                              {' = '}<strong>{formatCurrency(itemBoardingCost)}</strong>
+                              {item.days_count} × {formatCurrency(displayRate)} = <strong>{formatCurrency(itemBoardingCost)}</strong>
                             </span>
                           )
                         })()
