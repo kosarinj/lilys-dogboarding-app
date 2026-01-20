@@ -178,6 +178,12 @@ export async function runMigrations() {
     `)
     console.log('✓ Added puppy fee settings')
 
+    // Change days_count from INTEGER to DECIMAL to support partial days (0.5, 1.5, etc.)
+    await query(`
+      ALTER TABLE stays ALTER COLUMN days_count TYPE DECIMAL(10,2) USING days_count::DECIMAL(10,2)
+    `)
+    console.log('✓ Changed days_count to DECIMAL for partial day support')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
