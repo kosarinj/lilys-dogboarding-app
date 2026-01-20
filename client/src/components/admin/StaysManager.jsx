@@ -234,6 +234,27 @@ function StaysManager() {
     }
   }
 
+  // Calculate daycare hours and rate multiplier
+  // 2-7 hours: 50% of daily rate, 8+ hours: 100% of daily rate
+  const getDaycareRateMultiplier = () => {
+    if (formData.stay_type !== 'daycare' || !formData.check_in_time || !formData.check_out_time) {
+      return 1.0 // Default to full rate if no times specified
+    }
+
+    const [inHour, inMin] = formData.check_in_time.split(':').map(Number)
+    const [outHour, outMin] = formData.check_out_time.split(':').map(Number)
+    const inMinutes = inHour * 60 + inMin
+    const outMinutes = outHour * 60 + outMin
+    const hours = (outMinutes - inMinutes) / 60
+
+    if (hours >= 8) {
+      return 1.0 // Full day rate
+    } else if (hours >= 2) {
+      return 0.5 // Half day rate
+    }
+    return 1.0 // Default to full rate for very short stays
+  }
+
   // Calculate estimated total for booking form
   const calculateEstimatedTotal = () => {
     if (!formData.dog_id || !formData.check_in_date || !formData.check_out_date) {
@@ -256,13 +277,16 @@ function StaysManager() {
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
     const feeMultiplier = formData.stay_type === 'daycare' ? days : 1
 
+    // Get daycare rate multiplier based on hours (0.5 for 2-7 hrs, 1.0 for 8+ hrs)
+    const daycareRateMultiplier = getDaycareRateMultiplier()
+
     // If special price is set, use that
     if (formData.special_price && parseFloat(formData.special_price) > 0) {
       const specialPrice = parseFloat(formData.special_price)
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      const puppyFee = formData.is_puppy ? getPuppyFee() * days : 0
+      const puppyFee = formData.is_puppy ? getPuppyFee() * days * daycareRateMultiplier : 0
       total = specialPrice + pickupFee + dropoffFee + extraCharge + puppyFee
     } else {
       // Get selected dog
@@ -283,12 +307,15 @@ function StaysManager() {
         dailyRate = parseFloat(rate.price_per_day)
       }
 
+      // Apply daycare rate multiplier (half day = 50%, full day = 100%)
+      const adjustedDailyRate = dailyRate * daycareRateMultiplier
+
       // Calculate costs
-      const baseCost = days * dailyRate
+      const baseCost = days * adjustedDailyRate
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      const puppyFee = formData.is_puppy ? getPuppyFee() * days : 0
+      const puppyFee = formData.is_puppy ? getPuppyFee() * days * daycareRateMultiplier : 0
 
       total = baseCost + pickupFee + dropoffFee + extraCharge + puppyFee
     }

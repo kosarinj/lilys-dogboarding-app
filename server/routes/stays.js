@@ -33,6 +33,27 @@ function getPuppyFee(fees, stay_type, rate_type) {
   }
 }
 
+// Helper function to calculate daycare rate multiplier based on hours
+// 2-7 hours = 50% of daily rate, 8+ hours = 100%
+function getDaycareRateMultiplier(stay_type, check_in_time, check_out_time) {
+  if (stay_type !== 'daycare' || !check_in_time || !check_out_time) {
+    return 1.0 // Default to full rate
+  }
+
+  const [inHour, inMin] = check_in_time.split(':').map(Number)
+  const [outHour, outMin] = check_out_time.split(':').map(Number)
+  const inMinutes = inHour * 60 + inMin
+  const outMinutes = outHour * 60 + outMin
+  const hours = (outMinutes - inMinutes) / 60
+
+  if (hours >= 8) {
+    return 1.0 // Full day rate
+  } else if (hours >= 2) {
+    return 0.5 // Half day rate
+  }
+  return 1.0 // Default to full rate for very short stays
+}
+
 // GET /api/stays
 router.get('/', async (req, res) => {
   try {
@@ -171,12 +192,16 @@ router.post('/', async (req, res) => {
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
-    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
+
+    // Calculate daycare rate multiplier based on hours (2-7 hrs = 50%, 8+ hrs = 100%)
+    const daycareRateMultiplier = getDaycareRateMultiplier(stay_type, check_in_time, check_out_time)
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * daycareRateMultiplier : 0
 
     console.log('Fee calculation debug:', {
       stay_type,
       days_count,
       fee_multiplier,
+      daycareRateMultiplier,
       base_dropoff: fees.dropoff,
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
@@ -187,8 +212,8 @@ router.post('/', async (req, res) => {
       requires_pickup
     })
 
-    // Total cost = (daily rate × days) + fees + puppy fee + extra charge
-    const boarding_cost = daily_rate * days_count
+    // Total cost = (daily rate × days × daycare multiplier) + fees + puppy fee + extra charge
+    const boarding_cost = daily_rate * days_count * daycareRateMultiplier
     const total_cost = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Determine status based on dates
@@ -287,12 +312,16 @@ router.put('/:id', async (req, res) => {
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
-    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
+
+    // Calculate daycare rate multiplier based on hours (2-7 hrs = 50%, 8+ hrs = 100%)
+    const daycareRateMultiplier = getDaycareRateMultiplier(stay_type, check_in_time, check_out_time)
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * daycareRateMultiplier : 0
 
     console.log('Fee calculation debug (UPDATE):', {
       stay_type,
       days_count,
       fee_multiplier,
+      daycareRateMultiplier,
       base_dropoff: fees.dropoff,
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
@@ -303,8 +332,8 @@ router.put('/:id', async (req, res) => {
       requires_pickup
     })
 
-    // Total cost = (daily rate × days) + fees + puppy fee + extra charge
-    const boarding_cost = daily_rate * days_count
+    // Total cost = (daily rate × days × daycare multiplier) + fees + puppy fee + extra charge
+    const boarding_cost = daily_rate * days_count * daycareRateMultiplier
     const calculated_total = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Use special_price if provided, otherwise use calculated total_cost
