@@ -312,7 +312,11 @@ function BillView({ billCode }) {
                     {item.days_count}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right', color: '#2c3e50' }}>
-                    {item.special_price ? '-' : formatCurrency(item.daily_rate)}
+                    {item.special_price ? '-' : (() => {
+                      const puppyFeePerDay = item.is_puppy && item.puppy_fee ? parseFloat(item.puppy_fee) / parseFloat(item.days_count) : 0
+                      const displayRate = parseFloat(item.daily_rate) + puppyFeePerDay
+                      return formatCurrency(displayRate)
+                    })()}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
                     {formatCurrency(parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0))}

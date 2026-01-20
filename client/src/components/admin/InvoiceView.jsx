@@ -452,8 +452,18 @@ function InvoiceView({ bill, onClose }) {
                           <strong>{formatCurrency(parseFloat(item.special_price))}</strong>
                         </span>
                       ) : (
-                        // Normal calculation
-                        <span>{item.days_count} × {formatCurrency(item.daily_rate)} = <strong>{formatCurrency(itemBoardingCost)}</strong></span>
+                        // Normal calculation - include puppy fee in the displayed rate if applicable
+                        (() => {
+                          const puppyFeePerDay = item.is_puppy && item.puppy_fee ? parseFloat(item.puppy_fee) / parseFloat(item.days_count) : 0
+                          const displayRate = parseFloat(item.daily_rate) + puppyFeePerDay
+                          return (
+                            <span>
+                              {item.days_count} × {formatCurrency(displayRate)}
+                              {item.is_puppy && <span style={{ fontSize: '12px', color: '#ec4899' }}> (incl. puppy fee)</span>}
+                              {' = '}<strong>{formatCurrency(itemBoardingCost)}</strong>
+                            </span>
+                          )
+                        })()
                       )}
                     </div>
                   </div>
