@@ -234,11 +234,16 @@ function StaysManager() {
     }
   }
 
-  // Calculate daycare hours and rate multiplier
+  // Calculate hours and rate multiplier for same-day stays
   // 2-7 hours: 50% of daily rate, 8+ hours: 100% of daily rate
-  const getDaycareRateMultiplier = () => {
-    if (formData.stay_type !== 'daycare' || !formData.check_in_time || !formData.check_out_time) {
+  const getHourlyRateMultiplier = () => {
+    if (!formData.check_in_time || !formData.check_out_time) {
       return 1.0 // Default to full rate if no times specified
+    }
+
+    // Only apply to same-day stays (check-in and check-out on same date)
+    if (formData.check_in_date !== formData.check_out_date) {
+      return 1.0 // Multi-day stays use full daily rate
     }
 
     const [inHour, inMin] = formData.check_in_time.split(':').map(Number)
@@ -278,7 +283,7 @@ function StaysManager() {
     const feeMultiplier = formData.stay_type === 'daycare' ? days : 1
 
     // Get daycare rate multiplier based on hours (0.5 for 2-7 hrs, 1.0 for 8+ hrs)
-    const daycareRateMultiplier = getDaycareRateMultiplier()
+    const daycareRateMultiplier = getHourlyRateMultiplier()
 
     // If special price is set, use that
     if (formData.special_price && parseFloat(formData.special_price) > 0) {
