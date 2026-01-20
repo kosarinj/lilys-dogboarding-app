@@ -80,6 +80,7 @@ router.get('/:id', async (req, res) => {
              s.stay_type, s.rate_type, s.days_count, s.daily_rate, s.total_cost,
              s.special_price, s.special_price_comments, s.notes, s.status, s.requires_dropoff, s.requires_pickup,
              s.dropoff_fee, s.pickup_fee, s.extra_charge, s.extra_charge_comments,
+             s.is_puppy, s.puppy_fee,
              d.name as dog_name, d.size as dog_size, d.photo_url as dog_photo_url
       FROM bill_items bi
       JOIN stays s ON bi.stay_id = s.id
@@ -120,6 +121,7 @@ router.get('/code/:code', async (req, res) => {
              s.stay_type, s.rate_type, s.days_count, s.daily_rate, s.total_cost,
              s.special_price, s.special_price_comments, s.notes, s.status, s.requires_dropoff, s.requires_pickup,
              s.dropoff_fee, s.pickup_fee, s.extra_charge, s.extra_charge_comments,
+             s.is_puppy, s.puppy_fee,
              d.name as dog_name, d.size as dog_size, d.photo_url as dog_photo_url
       FROM bill_items bi
       JOIN stays s ON bi.stay_id = s.id
