@@ -1,6 +1,31 @@
+import { useState, useEffect } from 'react'
+import { ratesAPI } from '../../utils/api'
 import './admin.css'
 
 function InvoiceView({ bill, onClose }) {
+  const [rates, setRates] = useState([])
+
+  useEffect(() => {
+    const loadRates = async () => {
+      try {
+        const res = await ratesAPI.getAll()
+        setRates(res.data)
+      } catch (err) {
+        console.error('Failed to load rates:', err)
+      }
+    }
+    loadRates()
+  }, [])
+
+  // Helper to get holiday rate for a service type and size
+  const getHolidayRate = (serviceType, size = 'medium') => {
+    const rate = rates.find(r =>
+      r.service_type === serviceType &&
+      r.rate_type === 'holiday' &&
+      r.dog_size === size
+    )
+    return rate ? parseFloat(rate.price_per_day) : null
+  }
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
 
@@ -547,10 +572,10 @@ function InvoiceView({ bill, onClose }) {
               </ul>
             </div>
             <div>
-              <strong>Holiday Rates:</strong>
+              <strong>Holiday Rates (Medium size):</strong>
               <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
-                <li>Day Care: $75/day</li>
-                <li>Boarding: $85/night</li>
+                <li>Day Care: {getHolidayRate('daycare') ? `$${getHolidayRate('daycare').toFixed(0)}/day` : 'Loading...'}</li>
+                <li>Boarding: {getHolidayRate('boarding') ? `$${getHolidayRate('boarding').toFixed(0)}/night` : 'Loading...'}</li>
               </ul>
             </div>
           </div>
