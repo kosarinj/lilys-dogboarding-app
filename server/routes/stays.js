@@ -33,18 +33,11 @@ function getPuppyFee(fees, stay_type, rate_type) {
   }
 }
 
-// Helper function to calculate hourly rate multiplier for same-day stays
+// Helper function to calculate hourly rate multiplier based on check-in/check-out times
 // 2-7 hours = 50% of daily rate, 8+ hours = 100%
-function getHourlyRateMultiplier(check_in_date, check_out_date, check_in_time, check_out_time) {
+function getHourlyRateMultiplier(check_in_time, check_out_time) {
   if (!check_in_time || !check_out_time) {
     return 1.0 // Default to full rate if no times specified
-  }
-
-  // Only apply to same-day stays
-  const inDate = check_in_date.split('T')[0]
-  const outDate = check_out_date.split('T')[0]
-  if (inDate !== outDate) {
-    return 1.0 // Multi-day stays use full daily rate
   }
 
   const [inHour, inMin] = check_in_time.split(':').map(Number)
@@ -52,6 +45,11 @@ function getHourlyRateMultiplier(check_in_date, check_out_date, check_in_time, c
   const inMinutes = inHour * 60 + inMin
   const outMinutes = outHour * 60 + outMin
   const hours = (outMinutes - inMinutes) / 60
+
+  // If checkout is before checkin (multi-day stay), use full rate
+  if (hours <= 0) {
+    return 1.0
+  }
 
   if (hours >= 8) {
     return 1.0 // Full day rate
@@ -200,8 +198,8 @@ router.post('/', async (req, res) => {
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Calculate hourly rate multiplier for same-day stays (2-7 hrs = 50%, 8+ hrs = 100%)
-    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_date, check_out_date, check_in_time, check_out_time)
+    // Calculate hourly rate multiplier (2-7 hrs = 50%, 8+ hrs = 100%)
+    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_time, check_out_time)
     const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * hourlyRateMultiplier : 0
 
     console.log('Fee calculation debug:', {
@@ -320,8 +318,8 @@ router.put('/:id', async (req, res) => {
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Calculate hourly rate multiplier for same-day stays (2-7 hrs = 50%, 8+ hrs = 100%)
-    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_date, check_out_date, check_in_time, check_out_time)
+    // Calculate hourly rate multiplier (2-7 hrs = 50%, 8+ hrs = 100%)
+    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_time, check_out_time)
     const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * hourlyRateMultiplier : 0
 
     console.log('Fee calculation debug (UPDATE):', {

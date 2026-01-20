@@ -234,16 +234,11 @@ function StaysManager() {
     }
   }
 
-  // Calculate hours and rate multiplier for same-day stays
+  // Calculate hours and rate multiplier based on check-in/check-out times
   // 2-7 hours: 50% of daily rate, 8+ hours: 100% of daily rate
   const getHourlyRateMultiplier = () => {
     if (!formData.check_in_time || !formData.check_out_time) {
       return 1.0 // Default to full rate if no times specified
-    }
-
-    // Only apply to same-day stays (check-in and check-out on same date)
-    if (formData.check_in_date !== formData.check_out_date) {
-      return 1.0 // Multi-day stays use full daily rate
     }
 
     const [inHour, inMin] = formData.check_in_time.split(':').map(Number)
@@ -251,6 +246,11 @@ function StaysManager() {
     const inMinutes = inHour * 60 + inMin
     const outMinutes = outHour * 60 + outMin
     const hours = (outMinutes - inMinutes) / 60
+
+    // If checkout is before checkin (multi-day stay), use full rate
+    if (hours <= 0) {
+      return 1.0
+    }
 
     if (hours >= 8) {
       return 1.0 // Full day rate
