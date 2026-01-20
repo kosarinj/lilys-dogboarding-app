@@ -234,11 +234,11 @@ function StaysManager() {
     }
   }
 
-  // Calculate hours and rate multiplier based on check-in/check-out times
-  // 2-7 hours: 50% of daily rate, 8+ hours: 100% of daily rate
-  const getHourlyRateMultiplier = () => {
+  // Calculate partial day addition based on checkout time vs checkin time
+  // If checkout is past checkin time: 2-7 hrs = +0.5 day, 8+ hrs = +1 day
+  const getPartialDayAddition = () => {
     if (!formData.check_in_time || !formData.check_out_time) {
-      return 1.0 // Default to full rate if no times specified
+      return 0 // No partial day if times not specified
     }
 
     const [inHour, inMin] = formData.check_in_time.split(':').map(Number)
@@ -247,17 +247,17 @@ function StaysManager() {
     const outMinutes = outHour * 60 + outMin
     const hours = (outMinutes - inMinutes) / 60
 
-    // If checkout is before checkin (multi-day stay), use full rate
+    // If checkout is before or at checkin time, no extra partial day
     if (hours <= 0) {
-      return 1.0
+      return 0
     }
 
     if (hours >= 8) {
-      return 1.0 // Full day rate
+      return 1.0 // Full extra day
     } else if (hours >= 2) {
-      return 0.5 // Half day rate
+      return 0.5 // Half day
     }
-    return 1.0 // Default to full rate for very short stays
+    return 0 // Less than 2 hours, no extra charge
   }
 
   // Calculate estimated total for booking form
@@ -268,22 +268,24 @@ function StaysManager() {
 
     let total
 
-    // Calculate days first to use in fee calculations
-    let days
+    // Calculate base days from date difference
+    let baseDays
     if (formData.stay_type === 'daycare' && formData.days_count) {
-      days = parseInt(formData.days_count)
+      baseDays = parseInt(formData.days_count)
     } else {
       const checkIn = new Date(formData.check_in_date)
       const checkOut = new Date(formData.check_out_date)
-      days = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)))
+      baseDays = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
     }
+
+    // Add partial day if checkout time is past checkin time
+    // 2-7 hours past = +0.5 day, 8+ hours past = +1 day
+    const partialDay = getPartialDayAddition()
+    const totalDays = Math.max(baseDays + partialDay, partialDay > 0 ? partialDay : 1)
 
     // For daycare: multiply fees by days (each day needs drop-off/pick-up)
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
-    const feeMultiplier = formData.stay_type === 'daycare' ? days : 1
-
-    // Get daycare rate multiplier based on hours (0.5 for 2-7 hrs, 1.0 for 8+ hrs)
-    const daycareRateMultiplier = getHourlyRateMultiplier()
+    const feeMultiplier = formData.stay_type === 'daycare' ? Math.ceil(totalDays) : 1
 
     // If special price is set, use that
     if (formData.special_price && parseFloat(formData.special_price) > 0) {
@@ -291,7 +293,7 @@ function StaysManager() {
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      const puppyFee = formData.is_puppy ? getPuppyFee() * days * daycareRateMultiplier : 0
+      const puppyFee = formData.is_puppy ? getPuppyFee() * totalDays : 0
       total = specialPrice + pickupFee + dropoffFee + extraCharge + puppyFee
     } else {
       // Get selected dog
@@ -312,15 +314,12 @@ function StaysManager() {
         dailyRate = parseFloat(rate.price_per_day)
       }
 
-      // Apply daycare rate multiplier (half day = 50%, full day = 100%)
-      const adjustedDailyRate = dailyRate * daycareRateMultiplier
-
-      // Calculate costs
-      const baseCost = days * adjustedDailyRate
+      // Calculate costs: base days + partial day
+      const baseCost = totalDays * dailyRate
       const pickupFee = formData.requires_pickup ? getPickupFee() * feeMultiplier : 0
       const dropoffFee = formData.requires_dropoff ? getDropoffFee() * feeMultiplier : 0
       const extraCharge = formData.extra_charge ? parseFloat(formData.extra_charge) : 0
-      const puppyFee = formData.is_puppy ? getPuppyFee() * days * daycareRateMultiplier : 0
+      const puppyFee = formData.is_puppy ? getPuppyFee() * totalDays : 0
 
       total = baseCost + pickupFee + dropoffFee + extraCharge + puppyFee
     }

@@ -33,11 +33,11 @@ function getPuppyFee(fees, stay_type, rate_type) {
   }
 }
 
-// Helper function to calculate hourly rate multiplier based on check-in/check-out times
-// 2-7 hours = 50% of daily rate, 8+ hours = 100%
-function getHourlyRateMultiplier(check_in_time, check_out_time) {
+// Helper function to calculate partial day addition based on checkout time vs checkin time
+// If checkout is past checkin time: 2-7 hrs = +0.5 day, 8+ hrs = +1 day
+function getPartialDayAddition(check_in_time, check_out_time) {
   if (!check_in_time || !check_out_time) {
-    return 1.0 // Default to full rate if no times specified
+    return 0 // No partial day if times not specified
   }
 
   const [inHour, inMin] = check_in_time.split(':').map(Number)
@@ -46,17 +46,17 @@ function getHourlyRateMultiplier(check_in_time, check_out_time) {
   const outMinutes = outHour * 60 + outMin
   const hours = (outMinutes - inMinutes) / 60
 
-  // If checkout is before checkin (multi-day stay), use full rate
+  // If checkout is before or at checkin time, no extra partial day
   if (hours <= 0) {
-    return 1.0
+    return 0
   }
 
   if (hours >= 8) {
-    return 1.0 // Full day rate
+    return 1.0 // Full extra day
   } else if (hours >= 2) {
-    return 0.5 // Half day rate
+    return 0.5 // Half day
   }
-  return 1.0 // Default to full rate for very short stays
+  return 0 // Less than 2 hours, no extra charge
 }
 
 // GET /api/stays
@@ -133,38 +133,33 @@ router.post('/', async (req, res) => {
   try {
     const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, is_puppy, days_count: manual_days_count } = req.body
 
-    // Calculate days from date range
+    // Calculate base days from date range
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    let calculated_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let base_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
-    // If checkout time is after checkin time, add 1 day (staying past normal checkin time)
-    if (check_in_time && check_out_time) {
-      const [inHour, inMin] = check_in_time.split(':').map(Number)
-      const [outHour, outMin] = check_out_time.split(':').map(Number)
-      const inMinutes = inHour * 60 + inMin
-      const outMinutes = outHour * 60 + outMin
-
-      if (outMinutes > inMinutes) {
-        // Checkout time is after checkin time, so add an extra day
-        calculated_days += 1
-      }
-    }
+    // Add partial day if checkout time is past checkin time
+    // 2-7 hours past = +0.5 day, 8+ hours past = +1 day
+    const partial_day = getPartialDayAddition(check_in_time, check_out_time)
 
     // For daycare, allow manual days_count override (for non-consecutive days within date range)
     // For boarding, always use calculated days from date range
     let days_count
     if (stay_type === 'daycare') {
       // Use manual days_count if provided, otherwise use calculated
-      days_count = manual_days_count ? parseInt(manual_days_count) : calculated_days
-      if (days_count === 0) {
-        days_count = 1 // Same day counts as 1 day for daycare
+      if (manual_days_count) {
+        days_count = parseInt(manual_days_count)
+      } else {
+        days_count = Math.max(base_days + partial_day, partial_day > 0 ? partial_day : 1)
       }
     } else {
-      // Boarding: always use calculated days (must be consecutive nights)
-      days_count = calculated_days
+      // Boarding: base days + partial day for checkout past checkin time
+      days_count = base_days + partial_day
       if (days_count <= 0) {
-        return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
+        days_count = partial_day > 0 ? partial_day : 0
+        if (days_count <= 0) {
+          return res.status(400).json({ error: 'For boarding, check-out must be after check-in' })
+        }
       }
     }
 
@@ -193,20 +188,20 @@ router.post('/', async (req, res) => {
     // Calculate fees
     // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
-    const fee_multiplier = stay_type === 'daycare' ? days_count : 1
+    const fee_multiplier = stay_type === 'daycare' ? Math.ceil(days_count) : 1
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Calculate hourly rate multiplier (2-7 hrs = 50%, 8+ hrs = 100%)
-    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_time, check_out_time)
-    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * hourlyRateMultiplier : 0
+    // Puppy fee based on total days (including partial)
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
 
     console.log('Fee calculation debug:', {
       stay_type,
+      base_days,
+      partial_day,
       days_count,
       fee_multiplier,
-      hourlyRateMultiplier,
       base_dropoff: fees.dropoff,
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
@@ -217,8 +212,8 @@ router.post('/', async (req, res) => {
       requires_pickup
     })
 
-    // Total cost = (daily rate × days × hourly multiplier) + fees + puppy fee + extra charge
-    const boarding_cost = daily_rate * days_count * hourlyRateMultiplier
+    // Total cost = (daily rate × days including partial) + fees + puppy fee + extra charge
+    const boarding_cost = daily_rate * days_count
     const total_cost = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Determine status based on dates
@@ -256,38 +251,33 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params
     const { dog_id, check_in_date, check_out_date, check_in_time, check_out_time, stay_type, rate_type, special_price, special_price_comments, notes, status, requires_dropoff, requires_pickup, extra_charge, extra_charge_comments, rover, is_puppy, days_count: manual_days_count } = req.body
 
-    // Calculate days from date range
+    // Calculate base days from date range
     const checkIn = new Date(check_in_date)
     const checkOut = new Date(check_out_date)
-    let calculated_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+    let base_days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
 
-    // If checkout time is after checkin time, add 1 day (staying past normal checkin time)
-    if (check_in_time && check_out_time) {
-      const [inHour, inMin] = check_in_time.split(':').map(Number)
-      const [outHour, outMin] = check_out_time.split(':').map(Number)
-      const inMinutes = inHour * 60 + inMin
-      const outMinutes = outHour * 60 + outMin
-
-      if (outMinutes > inMinutes) {
-        // Checkout time is after checkin time, so add an extra day
-        calculated_days += 1
-      }
-    }
+    // Add partial day if checkout time is past checkin time
+    // 2-7 hours past = +0.5 day, 8+ hours past = +1 day
+    const partial_day = getPartialDayAddition(check_in_time, check_out_time)
 
     // For daycare, allow manual days_count override (for non-consecutive days within date range)
     // For boarding, always use calculated days from date range
     let days_count
     if (stay_type === 'daycare') {
       // Use manual days_count if provided, otherwise use calculated
-      days_count = manual_days_count ? parseInt(manual_days_count) : calculated_days
-      if (days_count === 0) {
-        days_count = 1 // Same day counts as 1 day for daycare
+      if (manual_days_count) {
+        days_count = parseInt(manual_days_count)
+      } else {
+        days_count = Math.max(base_days + partial_day, partial_day > 0 ? partial_day : 1)
       }
     } else {
-      // Boarding: always use calculated days (must be consecutive nights)
-      days_count = calculated_days
+      // Boarding: base days + partial day for checkout past checkin time
+      days_count = base_days + partial_day
       if (days_count <= 0) {
-        return res.status(400).json({ error: 'For boarding, check-out must be after check-in (at least 1 night)' })
+        days_count = partial_day > 0 ? partial_day : 0
+        if (days_count <= 0) {
+          return res.status(400).json({ error: 'For boarding, check-out must be after check-in' })
+        }
       }
     }
 
@@ -313,20 +303,20 @@ router.put('/:id', async (req, res) => {
     // Calculate fees
     // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
-    const fee_multiplier = stay_type === 'daycare' ? days_count : 1
+    const fee_multiplier = stay_type === 'daycare' ? Math.ceil(days_count) : 1
     const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
     const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
-    // Calculate hourly rate multiplier (2-7 hrs = 50%, 8+ hrs = 100%)
-    const hourlyRateMultiplier = getHourlyRateMultiplier(check_in_time, check_out_time)
-    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count * hourlyRateMultiplier : 0
+    // Puppy fee based on total days (including partial)
+    const puppy_fee = is_puppy ? getPuppyFee(fees, stay_type, rate_type) * days_count : 0
 
     console.log('Fee calculation debug (UPDATE):', {
       stay_type,
+      base_days,
+      partial_day,
       days_count,
       fee_multiplier,
-      hourlyRateMultiplier,
       base_dropoff: fees.dropoff,
       base_pickup: fees.pickup,
       calculated_dropoff_fee: dropoff_fee,
@@ -337,8 +327,8 @@ router.put('/:id', async (req, res) => {
       requires_pickup
     })
 
-    // Total cost = (daily rate × days × hourly multiplier) + fees + puppy fee + extra charge
-    const boarding_cost = daily_rate * days_count * hourlyRateMultiplier
+    // Total cost = (daily rate × days including partial) + fees + puppy fee + extra charge
+    const boarding_cost = daily_rate * days_count
     const calculated_total = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
     // Use special_price if provided, otherwise use calculated total_cost
