@@ -184,6 +184,12 @@ export async function runMigrations() {
     `)
     console.log('✓ Changed days_count to DECIMAL for partial day support')
 
+    // Change bill_items quantity from INTEGER to DECIMAL to support partial days
+    await query(`
+      ALTER TABLE bill_items ALTER COLUMN quantity TYPE DECIMAL(10,2) USING quantity::DECIMAL(10,2)
+    `)
+    console.log('✓ Changed bill_items quantity to DECIMAL for partial day support')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
