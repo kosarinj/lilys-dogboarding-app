@@ -190,6 +190,15 @@ export async function runMigrations() {
     `)
     console.log('✓ Changed bill_items quantity to DECIMAL for partial day support')
 
+    // Add 'custom' to rate_type enum if it exists as an enum
+    try {
+      await query(`ALTER TYPE rate_type ADD VALUE IF NOT EXISTS 'custom'`)
+      console.log('✓ Added custom to rate_type enum')
+    } catch (e) {
+      // If rate_type is not an enum or already has 'custom', ignore
+      console.log('rate_type enum update skipped:', e.message)
+    }
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
