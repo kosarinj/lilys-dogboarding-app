@@ -109,6 +109,14 @@ function BillView({ billCode }) {
     return `${startStr} - ${endStr}`
   }
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return ''
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    const ampm = hours >= 12 ? 'PM' : 'AM'
+    const h = hours % 12 || 12
+    return minutes === 0 ? `${h} ${ampm}` : `${h}:${String(minutes).padStart(2, '0')} ${ampm}`
+  }
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -305,6 +313,9 @@ function BillView({ billCode }) {
                     </div>
                     <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
                       {formatDate(item.check_in_date)} to {formatDate(item.check_out_date)}
+                      {(item.check_in_time || item.check_out_time) && (
+                        <span> ({formatTime(item.check_in_time)} - {formatTime(item.check_out_time)})</span>
+                      )}
                       {!item.special_price && item.rate_type === 'holiday' && ' (Holiday Rate)'}
                     </div>
                   </td>

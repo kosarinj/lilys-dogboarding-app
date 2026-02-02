@@ -112,6 +112,14 @@ function InvoiceView({ bill, onClose }) {
     return `${startStr} - ${endStr}`
   }
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return ''
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    const ampm = hours >= 12 ? 'PM' : 'AM'
+    const h = hours % 12 || 12
+    return minutes === 0 ? `${h} ${ampm}` : `${h}:${String(minutes).padStart(2, '0')} ${ampm}`
+  }
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -433,6 +441,11 @@ function InvoiceView({ bill, onClose }) {
                   }}>
                     <div>
                       <strong>{item.dog_name}</strong> - {item.days_count} {item.stay_type === 'daycare' ? (item.days_count > 1 ? 'Days' : 'Day') : (item.days_count > 1 ? 'Nights' : 'Night')}
+                      {(item.check_in_time || item.check_out_time) && (
+                        <span style={{ fontSize: '13px', color: '#7f8c8d', marginLeft: '8px' }}>
+                          ({formatTime(item.check_in_time)} - {formatTime(item.check_out_time)})
+                        </span>
+                      )}
                       {!item.special_price && item.rate_type === 'holiday' && (
                         <span style={{
                           marginLeft: '8px',
