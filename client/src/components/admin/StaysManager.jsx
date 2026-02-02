@@ -300,15 +300,16 @@ function StaysManager() {
       const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
       if (!selectedDog) return null
 
-      // Use custom daily rate if set, otherwise find the appropriate rate
+      // Use custom daily rate if rate_type is 'custom', otherwise find the appropriate rate
       let dailyRate
-      if (selectedDog.custom_daily_rate) {
+      if (formData.rate_type === 'custom' && selectedDog.custom_daily_rate) {
         dailyRate = parseFloat(selectedDog.custom_daily_rate)
       } else {
+        const lookupRateType = formData.rate_type === 'custom' ? 'regular' : formData.rate_type
         const rate = rates.find(r =>
           r.dog_size === selectedDog.size &&
-          r.rate_type === formData.rate_type &&
-          (r.service_type === formData.stay_type || !r.service_type) // Handle null service_type for old data
+          r.rate_type === lookupRateType &&
+          (r.service_type === formData.stay_type || !r.service_type)
         )
         if (!rate) return null
         dailyRate = parseFloat(rate.price_per_day)
@@ -496,6 +497,12 @@ function StaysManager() {
                 >
                   <option value="regular">Regular Rate</option>
                   <option value="holiday">Holiday Rate</option>
+                  {(() => {
+                    const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+                    return selectedDog?.custom_daily_rate ? (
+                      <option value="custom">Custom Rate (${parseFloat(selectedDog.custom_daily_rate).toFixed(0)}/day)</option>
+                    ) : null
+                  })()}
                 </select>
               </div>
 
