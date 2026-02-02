@@ -86,10 +86,16 @@ function StaysManager() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      // Map 'custom' rate_type to 'regular' for DB (custom uses special_price instead)
+      const submitData = { ...formData }
+      if (submitData.rate_type === 'custom') {
+        submitData.rate_type = 'regular'
+      }
+
       if (editingStay) {
-        await staysAPI.update(editingStay.id, formData)
+        await staysAPI.update(editingStay.id, submitData)
       } else {
-        await staysAPI.create(formData)
+        await staysAPI.create(submitData)
       }
 
       setFormData({
@@ -492,7 +498,37 @@ function StaysManager() {
                 <select
                   className="form-select"
                   value={formData.rate_type}
-                  onChange={(e) => setFormData({ ...formData, rate_type: e.target.value })}
+                  onChange={(e) => {
+                    const newRateType = e.target.value
+                    const updates = { rate_type: newRateType }
+
+                    if (newRateType === 'custom') {
+                      const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
+                      if (selectedDog?.custom_daily_rate) {
+                        const customRate = parseFloat(selectedDog.custom_daily_rate)
+                        // Calculate days for special price
+                        let days = 0
+                        if (formData.stay_type === 'daycare' && formData.days_count) {
+                          days = parseInt(formData.days_count)
+                        } else if (formData.check_in_date && formData.check_out_date) {
+                          const checkIn = new Date(formData.check_in_date)
+                          const checkOut = new Date(formData.check_out_date)
+                          days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+                          days += getPartialDayAddition()
+                        }
+                        if (days > 0) {
+                          updates.special_price = (customRate * days).toFixed(2)
+                          updates.special_price_comments = `Custom rate: $${customRate.toFixed(0)}/day × ${days} days`
+                        }
+                      }
+                    } else if (formData.rate_type === 'custom') {
+                      // Switching away from custom - clear special price if it was auto-set
+                      updates.special_price = ''
+                      updates.special_price_comments = ''
+                    }
+
+                    setFormData({ ...formData, ...updates })
+                  }}
                   required
                 >
                   <option value="regular">Regular Rate</option>
