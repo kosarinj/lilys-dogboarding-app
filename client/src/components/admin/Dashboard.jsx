@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { customersAPI, staysAPI, billsAPI } from '../../utils/api'
 import './admin.css'
 
@@ -19,6 +20,10 @@ function Dashboard() {
     cancelledStaysTotal: 0,
     allStaysTotal: 0
   })
+  const [monthlyRevenueData, setMonthlyRevenueData] = useState([])
+  const [selectedMonth, setSelectedMonth] = useState(null)
+  const [allBills, setAllBills] = useState([])
+  const [allCustomers, setAllCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -93,6 +98,27 @@ function Dashboard() {
         .filter(b => b.status === 'paid')
         .reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
 
+      // Store raw data for drill-down
+      setAllBills(bills)
+      setAllCustomers(customers)
+
+      // Build monthly revenue data for chart (last 12 months)
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const chartData = []
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(currentYear, currentMonth - i, 1)
+        const m = d.getMonth()
+        const y = d.getFullYear()
+        const revenue = bills
+          .filter(b => {
+            const bd = new Date(b.bill_date)
+            return bd.getMonth() === m && bd.getFullYear() === y && b.status === 'paid'
+          })
+          .reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+        chartData.push({ month: `${monthNames[m]} ${y !== currentYear ? y : ''}`.trim(), monthIndex: m, year: y, revenue })
+      }
+      setMonthlyRevenueData(chartData)
+
       setStats({
         totalCustomers: customers.length,
         activeStays,
@@ -122,6 +148,33 @@ function Dashboard() {
       style: 'currency',
       currency: 'USD'
     }).format(amount)
+  }
+
+  const handleBarClick = (data) => {
+    if (!data || !data.activePayload) return
+    const clicked = data.activePayload[0].payload
+    // Toggle off if clicking the same month
+    if (selectedMonth && selectedMonth.monthIndex === clicked.monthIndex && selectedMonth.year === clicked.year) {
+      setSelectedMonth(null)
+    } else {
+      setSelectedMonth(clicked)
+    }
+  }
+
+  const getSelectedMonthBills = () => {
+    if (!selectedMonth) return []
+    const customerMap = {}
+    allCustomers.forEach(c => { customerMap[c.id] = c.name })
+    return allBills
+      .filter(b => {
+        const bd = new Date(b.bill_date)
+        return bd.getMonth() === selectedMonth.monthIndex && bd.getFullYear() === selectedMonth.year && b.status === 'paid'
+      })
+      .map(b => ({
+        ...b,
+        customerName: customerMap[b.customer_id] || 'Unknown'
+      }))
+      .sort((a, b) => new Date(a.bill_date) - new Date(b.bill_date))
   }
 
   if (loading) return <div className="loading-state">Loading dashboard...</div>
@@ -157,6 +210,76 @@ function Dashboard() {
           <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: 'var(--theme-primary, #f472b6)' }}>{formatCurrency(stats.monthlyRevenue)}</p>
           <p style={{ fontSize: '12px', color: '#95a5a6', marginTop: '8px' }}>Total: {formatCurrency(stats.totalRevenue)}</p>
         </div>
+      </div>
+
+      <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', margin: 0 }}>Monthly Revenue</h3>
+          {selectedMonth && (
+            <button
+              onClick={() => setSelectedMonth(null)}
+              style={{ background: 'none', border: '1px solid #dee2e6', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', color: '#7f8c8d', cursor: 'pointer' }}
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+        <p style={{ fontSize: '12px', color: '#95a5a6', marginBottom: '16px', marginTop: 0 }}>Click a bar to see bill details</p>
+        {monthlyRevenueData.some(d => d.revenue > 0) ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyRevenueData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }} onClick={handleBarClick} style={{ cursor: 'pointer' }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#7f8c8d' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#7f8c8d' }} tickFormatter={(v) => `$${v}`} />
+              <Tooltip
+                formatter={(value) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value), 'Revenue']}
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e8e8e8', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+              />
+              <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                {monthlyRevenueData.map((entry, index) => (
+                  <Cell key={index} fill={selectedMonth && selectedMonth.monthIndex === entry.monthIndex && selectedMonth.year === entry.year ? '#d6336c' : '#f472b6'} style={{ cursor: 'pointer' }} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#95a5a6' }}>
+            No paid bills yet
+          </div>
+        )}
+
+        {selectedMonth && (() => {
+          const monthBills = getSelectedMonthBills()
+          const monthTotal = monthBills.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+          return (
+            <div style={{ marginTop: '20px', borderTop: '2px solid #f0f0f0', paddingTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: '600', color: '#2c3e50', margin: 0 }}>
+                  {selectedMonth.month} {selectedMonth.year} — {formatCurrency(monthTotal)}
+                </h4>
+                <span style={{ fontSize: '13px', color: '#7f8c8d' }}>{monthBills.length} bill{monthBills.length !== 1 ? 's' : ''}</span>
+              </div>
+              {monthBills.length === 0 ? (
+                <p style={{ color: '#95a5a6', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>No paid bills this month</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {monthBills.map(bill => (
+                    <div key={bill.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#2c3e50' }}>{bill.customerName}</div>
+                        <div style={{ fontSize: '12px', color: '#95a5a6', marginTop: '2px' }}>
+                          {new Date(bill.bill_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {bill.payment_method && ` · ${bill.payment_method}`}
+                        </div>
+                      </div>
+                      <strong style={{ fontSize: '15px', color: '#27ae60' }}>{formatCurrency(bill.total_amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
