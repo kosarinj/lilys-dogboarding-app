@@ -18,6 +18,7 @@ function StaysManager() {
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editingStay, setEditingStay] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const [formData, setFormData] = useState({
     dog_id: '',
     check_in_date: '',
@@ -703,6 +704,17 @@ function StaysManager() {
         </div>
       )}
 
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Search by dog or owner name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ maxWidth: '320px' }}
+        />
+      </div>
+
       <div className="data-table-container">
         <table className="data-table">
           <thead>
@@ -721,18 +733,25 @@ function StaysManager() {
             </tr>
           </thead>
           <tbody>
-            {stays.length === 0 ? (
+            {(() => {
+              const filtered = stays.filter(stay => {
+                const term = searchTerm.toLowerCase()
+                return !term ||
+                  stay.dog_name?.toLowerCase().includes(term) ||
+                  stay.customer_name?.toLowerCase().includes(term)
+              })
+              if (filtered.length === 0) return (
               <tr>
                 <td colSpan="11">
                   <div className="empty-state">
                     <div className="empty-state-icon">📅</div>
-                    <div className="empty-state-text">No stays booked yet</div>
-                    <div className="empty-state-subtext">Click "Book Stay" to schedule your first boarding</div>
+                    <div className="empty-state-text">{searchTerm ? 'No stays match your search' : 'No stays booked yet'}</div>
+                    <div className="empty-state-subtext">{searchTerm ? 'Try a different name' : 'Click "Book Stay" to schedule your first boarding'}</div>
                   </div>
                 </td>
               </tr>
-            ) : (
-              stays.map((stay) => {
+              )
+              return filtered.map((stay) => {
                 const statusBadge = getStatusBadge(stay.status)
                 const services = []
                 if (stay.requires_dropoff) services.push('Drop-off')
@@ -787,7 +806,7 @@ function StaysManager() {
                   </tr>
                 )
               })
-            )}
+            })()}
           </tbody>
         </table>
       </div>
