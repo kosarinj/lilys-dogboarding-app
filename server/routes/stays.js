@@ -163,34 +163,44 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Get dog size to determine rate
-    const dogResult = await query('SELECT size FROM dogs WHERE id = $1', [dog_id])
+    // Get dog size and custom rate/fee overrides
+    const dogResult = await query('SELECT size, custom_daily_rate, pickup_fee_override, dropoff_fee_override FROM dogs WHERE id = $1', [dog_id])
     if (dogResult.rows.length === 0) {
       return res.status(404).json({ error: 'Dog not found' })
     }
     const dog_size = dogResult.rows[0].size
+    const dog_custom_daily_rate = dogResult.rows[0].custom_daily_rate
+    const dog_pickup_fee_override = dogResult.rows[0].pickup_fee_override
+    const dog_dropoff_fee_override = dogResult.rows[0].dropoff_fee_override
 
-    // Get daily rate based on dog size, rate type, and service type
-    const rateResult = await query(
-      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
-      [dog_size, rate_type, stay_type]
-    )
+    // Use custom daily rate from dog if set, otherwise look up by size/type
+    let daily_rate
+    if (dog_custom_daily_rate != null) {
+      daily_rate = parseFloat(dog_custom_daily_rate)
+    } else {
+      const rateResult = await query(
+        'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+        [dog_size, rate_type, stay_type]
+      )
 
-    if (rateResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Rate not found for this dog size, rate type, and service type' })
+      if (rateResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Rate not found for this dog size, rate type, and service type' })
+      }
+
+      daily_rate = parseFloat(rateResult.rows[0].price_per_day)
     }
-
-    const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
 
     // Get current fees from settings
     const fees = await getFees()
 
-    // Calculate fees
+    // Calculate fees — use dog-level overrides if set, otherwise use global settings
     // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
     const fee_multiplier = stay_type === 'daycare' ? Math.ceil(days_count) : 1
-    const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
-    const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
+    const dropoff_rate = dog_dropoff_fee_override != null ? parseFloat(dog_dropoff_fee_override) : fees.dropoff
+    const pickup_rate = dog_pickup_fee_override != null ? parseFloat(dog_pickup_fee_override) : fees.pickup
+    const dropoff_fee = requires_dropoff ? dropoff_rate * fee_multiplier : 0
+    const pickup_fee = requires_pickup ? pickup_rate * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
     // Puppy fee based on total days (including partial)
@@ -225,8 +235,10 @@ router.post('/', async (req, res) => {
       status = 'completed'
     }
 
-    // Use special_price if provided, otherwise use calculated total_cost
-    let final_total = special_price ? parseFloat(special_price) : total_cost
+    // special_price overrides only the boarding cost; fees are always added on top
+    let final_total = special_price
+      ? parseFloat(special_price) + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
+      : total_cost
 
     // Apply 20% Rover discount if checked
     if (rover) {
@@ -281,31 +293,41 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Get dog size
-    const dogResult = await query('SELECT size FROM dogs WHERE id = $1', [dog_id])
+    // Get dog size and custom rate/fee overrides
+    const dogResult = await query('SELECT size, custom_daily_rate, pickup_fee_override, dropoff_fee_override FROM dogs WHERE id = $1', [dog_id])
     const dog_size = dogResult.rows[0].size
+    const dog_custom_daily_rate = dogResult.rows[0].custom_daily_rate
+    const dog_pickup_fee_override = dogResult.rows[0].pickup_fee_override
+    const dog_dropoff_fee_override = dogResult.rows[0].dropoff_fee_override
 
-    // Get daily rate based on dog size, rate type, and service type
-    const rateResult = await query(
-      'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
-      [dog_size, rate_type, stay_type]
-    )
+    // Use custom daily rate from dog if set, otherwise look up by size/type
+    let daily_rate
+    if (dog_custom_daily_rate != null) {
+      daily_rate = parseFloat(dog_custom_daily_rate)
+    } else {
+      const rateResult = await query(
+        'SELECT price_per_day FROM rates WHERE dog_size = $1 AND rate_type = $2 AND service_type = $3',
+        [dog_size, rate_type, stay_type]
+      )
 
-    if (rateResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Rate not found for this dog size, rate type, and service type' })
+      if (rateResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Rate not found for this dog size, rate type, and service type' })
+      }
+
+      daily_rate = parseFloat(rateResult.rows[0].price_per_day)
     }
-
-    const daily_rate = parseFloat(rateResult.rows[0].price_per_day)
 
     // Get current fees from settings
     const fees = await getFees()
 
-    // Calculate fees
+    // Calculate fees — use dog-level overrides if set, otherwise use global settings
     // For daycare: multiply fees by days_count (each day needs drop-off/pick-up)
     // For boarding: fees are one-time (single drop-off at start, single pick-up at end)
     const fee_multiplier = stay_type === 'daycare' ? Math.ceil(days_count) : 1
-    const dropoff_fee = requires_dropoff ? fees.dropoff * fee_multiplier : 0
-    const pickup_fee = requires_pickup ? fees.pickup * fee_multiplier : 0
+    const dropoff_rate = dog_dropoff_fee_override != null ? parseFloat(dog_dropoff_fee_override) : fees.dropoff
+    const pickup_rate = dog_pickup_fee_override != null ? parseFloat(dog_pickup_fee_override) : fees.pickup
+    const dropoff_fee = requires_dropoff ? dropoff_rate * fee_multiplier : 0
+    const pickup_fee = requires_pickup ? pickup_rate * fee_multiplier : 0
     const extra_charge_amount = extra_charge ? parseFloat(extra_charge) : 0
 
     // Puppy fee based on total days (including partial)
@@ -331,8 +353,10 @@ router.put('/:id', async (req, res) => {
     const boarding_cost = daily_rate * days_count
     const calculated_total = boarding_cost + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
 
-    // Use special_price if provided, otherwise use calculated total_cost
-    let final_total = special_price ? parseFloat(special_price) : calculated_total
+    // special_price overrides only the boarding cost; fees are always added on top
+    let final_total = special_price
+      ? parseFloat(special_price) + dropoff_fee + pickup_fee + puppy_fee + extra_charge_amount
+      : calculated_total
 
     // Apply 20% Rover discount if checked
     if (rover) {

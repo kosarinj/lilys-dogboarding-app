@@ -121,6 +121,21 @@ export async function runMigrations() {
     `)
     console.log('✓ Added age_entry_date to dogs for automatic age tracking')
 
+    // Add drop-off/pick-up service fields to stays table
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS requires_dropoff BOOLEAN DEFAULT false
+    `)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS requires_pickup BOOLEAN DEFAULT false
+    `)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS dropoff_fee DECIMAL(10,2) DEFAULT 0
+    `)
+    await query(`
+      ALTER TABLE stays ADD COLUMN IF NOT EXISTS pickup_fee DECIMAL(10,2) DEFAULT 0
+    `)
+    console.log('✓ Added requires_dropoff, requires_pickup, dropoff_fee, pickup_fee to stays')
+
     // Add extra charge fields to stays table
     await query(`
       ALTER TABLE stays ADD COLUMN IF NOT EXISTS extra_charge DECIMAL(10,2)
