@@ -704,7 +704,7 @@ function StaysManager() {
         </div>
       )}
 
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <input
           type="text"
           className="form-input"
@@ -713,6 +713,28 @@ function StaysManager() {
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ maxWidth: '320px' }}
         />
+        {searchTerm && (() => {
+          const filtered = stays.filter(stay => {
+            const term = searchTerm.toLowerCase()
+            return stay.dog_name?.toLowerCase().includes(term) || stay.customer_name?.toLowerCase().includes(term)
+          })
+          if (filtered.length === 0) return null
+          const total = filtered.reduce((sum, stay) => sum + parseFloat(stay.total_cost || 0), 0)
+          return (
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '10px 18px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+              fontSize: '14px'
+            }}>
+              <span style={{ opacity: 0.85 }}>{filtered.length} stay{filtered.length !== 1 ? 's' : ''} &nbsp;|&nbsp; </span>
+              <strong style={{ fontSize: '16px' }}>{formatCurrency(total)}</strong>
+              <span style={{ opacity: 0.85 }}> total</span>
+            </div>
+          )
+        })()}
       </div>
 
       <div className="data-table-container">
