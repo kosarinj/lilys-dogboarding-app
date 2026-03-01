@@ -318,6 +318,11 @@ function BillView({ billCode }) {
                       )}
                       {!item.special_price && item.rate_type === 'holiday' && ' (Holiday Rate)'}
                     </div>
+                    {item.special_price && item.special_price_comments && (
+                      <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px', fontStyle: 'italic' }}>
+                        {item.special_price_comments}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'center', color: '#2c3e50' }}>
                     {item.days_count}
