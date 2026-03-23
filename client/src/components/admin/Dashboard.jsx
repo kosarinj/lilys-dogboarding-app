@@ -276,7 +276,6 @@ function Dashboard() {
               ))}
             </div>
           )}
-          <p style={{ fontSize: '12px', color: '#95a5a6', marginTop: '8px' }}>Total: {formatCurrency(stats.totalRevenue)}</p>
         </div>
       </div>
 
