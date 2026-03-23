@@ -306,6 +306,7 @@ function BillingManager() {
             <tr>
               <th>Bill Code</th>
               <th>Customer</th>
+              <th>Dog(s)</th>
               <th>Bill Date</th>
               <th>Due Date</th>
               <th>Amount</th>
@@ -317,7 +318,7 @@ function BillingManager() {
           <tbody>
             {bills.length === 0 ? (
               <tr>
-                <td colSpan="8">
+                <td colSpan="9">
                   <div className="empty-state">
                     <div className="empty-state-icon">💳</div>
                     <div className="empty-state-text">No bills generated yet</div>
@@ -341,6 +342,7 @@ function BillingManager() {
                   <tr key={bill.id}>
                     <td><strong>{bill.bill_code}</strong></td>
                     <td>{bill.customer_name}</td>
+                    <td>{bill.dog_names || '-'}</td>
                     <td>{formatDate(bill.bill_date)}</td>
                     <td>{formatDate(bill.due_date)}</td>
                     <td><strong>{formatCurrency(bill.total_amount)}</strong></td>
