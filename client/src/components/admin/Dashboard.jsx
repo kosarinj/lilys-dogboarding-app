@@ -25,6 +25,8 @@ function Dashboard() {
   const [allBills, setAllBills] = useState([])
   const [allCustomers, setAllCustomers] = useState([])
   const [unpaidBillsList, setUnpaidBillsList] = useState([])
+  const [activeStaysData, setActiveStaysData] = useState([])
+  const [upcomingStaysData, setUpcomingStaysData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -61,6 +63,8 @@ function Dashboard() {
       // Count and calculate totals for each stay status
       const activeStaysData = stays.filter(s => s.status === 'active')
       const upcomingStaysData = stays.filter(s => s.status === 'upcoming')
+      setActiveStaysData(activeStaysData)
+      setUpcomingStaysData(upcomingStaysData)
       const completedStaysData = stays.filter(s => s.status === 'completed')
       const cancelledStaysData = stays.filter(s => s.status === 'cancelled')
 
@@ -199,8 +203,33 @@ function Dashboard() {
         </div>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#7f8c8d', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Stays</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#27ae60' }}>{stats.activeStays}</p>
-          <p style={{ fontSize: '12px', color: '#95a5a6', marginTop: '8px' }}>{stats.upcomingStays} upcoming</p>
+          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#27ae60', marginBottom: activeStaysData.length > 0 ? '12px' : '0' }}>{stats.activeStays}</p>
+          {activeStaysData.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {activeStaysData.map(s => (
+                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <span style={{ color: '#2c3e50' }}>{s.dog_name}</span>
+                  <span style={{ fontWeight: '600', color: '#27ae60' }}>{formatCurrency(s.total_cost)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {upcomingStaysData.length > 0 && (
+            <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '12px', paddingTop: '10px' }}>
+              <p style={{ fontSize: '11px', fontWeight: '600', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '6px' }}>Upcoming ({stats.upcomingStays})</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {upcomingStaysData.map(s => (
+                  <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                    <span style={{ color: '#2c3e50' }}>{s.dog_name}</span>
+                    <span style={{ fontWeight: '600', color: '#3498db' }}>{formatCurrency(s.total_cost)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {upcomingStaysData.length === 0 && (
+            <p style={{ fontSize: '12px', color: '#95a5a6', marginTop: '8px' }}>{stats.upcomingStays} upcoming</p>
+          )}
         </div>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#7f8c8d', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unpaid Bills</h3>
