@@ -24,6 +24,7 @@ function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [allBills, setAllBills] = useState([])
   const [allCustomers, setAllCustomers] = useState([])
+  const [unpaidBillsList, setUnpaidBillsList] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -75,9 +76,9 @@ function Dashboard() {
       const allStaysTotal = stays.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
 
       // Calculate unpaid bills total
-      const unpaidBills = bills
-        .filter(b => b.status !== 'paid')
-        .reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+      const unpaidList = bills.filter(b => b.status !== 'paid')
+      const unpaidBills = unpaidList.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+      setUnpaidBillsList(unpaidList)
 
       // Calculate monthly revenue (this month)
       const now = new Date()
@@ -203,7 +204,17 @@ function Dashboard() {
         </div>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#7f8c8d', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unpaid Bills</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#e67e22' }}>{formatCurrency(stats.unpaidBills)}</p>
+          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#e67e22', marginBottom: unpaidBillsList.length > 0 ? '12px' : '0' }}>{formatCurrency(stats.unpaidBills)}</p>
+          {unpaidBillsList.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+              {unpaidBillsList.map(bill => (
+                <div key={bill.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <span style={{ color: '#2c3e50' }}>{bill.dog_names || bill.customer_name}</span>
+                  <span style={{ fontWeight: '600', color: '#e67e22' }}>{formatCurrency(bill.total_amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#7f8c8d', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Monthly Revenue</h3>
