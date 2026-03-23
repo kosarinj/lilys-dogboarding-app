@@ -86,7 +86,7 @@ function Dashboard() {
 
       const monthlyRevenue = bills
         .filter(b => {
-          const billDate = new Date(b.bill_date)
+          const billDate = new Date(b.check_in_date || b.bill_date)
           return billDate.getMonth() === currentMonth &&
                  billDate.getFullYear() === currentYear &&
                  b.status === 'paid'
@@ -111,7 +111,7 @@ function Dashboard() {
         const y = d.getFullYear()
         const revenue = bills
           .filter(b => {
-            const bd = new Date(b.bill_date)
+            const bd = new Date(b.check_in_date || b.bill_date)
             return bd.getMonth() === m && bd.getFullYear() === y && b.status === 'paid'
           })
           .reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
@@ -167,7 +167,7 @@ function Dashboard() {
     allCustomers.forEach(c => { customerMap[c.id] = c.name })
     return allBills
       .filter(b => {
-        const bd = new Date(b.bill_date)
+        const bd = new Date(b.check_in_date || b.bill_date)
         return bd.getMonth() === selectedMonth.monthIndex && bd.getFullYear() === selectedMonth.year && b.status === 'paid'
       })
       .map(b => ({
