@@ -43,7 +43,8 @@ router.get('/unbilled/stays', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
-      SELECT b.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email
+      SELECT b.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email,
+             (SELECT MIN(s.check_in_date) FROM bill_items bi JOIN stays s ON bi.stay_id = s.id WHERE bi.bill_id = b.id) as check_in_date
       FROM bills b
       JOIN customers c ON b.customer_id = c.id
       ORDER BY b.created_at DESC
