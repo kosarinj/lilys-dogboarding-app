@@ -11,6 +11,7 @@ function BillingManager() {
   const [error, setError] = useState(null)
   const [selectedStays, setSelectedStays] = useState({})
   const [viewingBill, setViewingBill] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -289,7 +290,17 @@ function BillingManager() {
 
       {/* Existing Bills Section */}
       <div className="data-table-container">
-        <h2 style={{ marginBottom: '16px' }}>All Bills</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>All Bills</h2>
+          <input
+            type="text"
+            placeholder="Search by customer or bill code..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="form-input"
+            style={{ width: '280px', margin: 0 }}
+          />
+        </div>
         <table className="data-table">
           <thead>
             <tr>
@@ -319,7 +330,12 @@ function BillingManager() {
                 </td>
               </tr>
             ) : (
-              bills.map(bill => {
+              bills
+              .filter(bill => {
+                const q = searchQuery.toLowerCase()
+                return !q || bill.customer_name?.toLowerCase().includes(q) || bill.bill_code?.toLowerCase().includes(q) || bill.status?.toLowerCase().includes(q)
+              })
+              .map(bill => {
                 const statusBadge = getStatusBadge(bill.status)
                 return (
                   <tr key={bill.id}>

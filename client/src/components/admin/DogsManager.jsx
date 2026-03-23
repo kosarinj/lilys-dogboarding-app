@@ -27,6 +27,7 @@ function DogsManager() {
     photo_url: ''
   })
   const [uploading, setUploading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadData()
@@ -212,11 +213,21 @@ function DogsManager() {
     <div>
       <div className="admin-header">
         <h1>Dogs</h1>
-        {!showForm && (
-          <button onClick={() => setShowForm(true)} className="btn btn-primary">
-            + Add Dog
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Search by name, owner, or breed..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="form-input"
+            style={{ width: '260px', margin: 0 }}
+          />
+          {!showForm && (
+            <button onClick={() => setShowForm(true)} className="btn btn-primary">
+              + Add Dog
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -487,7 +498,12 @@ function DogsManager() {
                 </td>
               </tr>
             ) : (
-              dogs.map((dog) => (
+              dogs
+              .filter(dog => {
+                const q = searchQuery.toLowerCase()
+                return !q || dog.name?.toLowerCase().includes(q) || dog.customer_name?.toLowerCase().includes(q) || dog.breed?.toLowerCase().includes(q)
+              })
+              .map((dog) => (
                 <tr key={dog.id} style={{ opacity: dog.status === 'deceased' ? 0.6 : 1 }}>
                   <td>
                     {dog.photo_url ? (

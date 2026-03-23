@@ -9,6 +9,7 @@ function CustomersManager() {
   const [showForm, setShowForm] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' })
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadCustomers()
@@ -76,11 +77,21 @@ function CustomersManager() {
     <div>
       <div className="admin-header">
         <h1>Customers</h1>
-        {!showForm && (
-          <button onClick={() => setShowForm(true)} className="btn btn-primary">
-            + Add Customer
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Search by name, phone, or email..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="form-input"
+            style={{ width: '260px', margin: 0 }}
+          />
+          {!showForm && (
+            <button onClick={() => setShowForm(true)} className="btn btn-primary">
+              + Add Customer
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -158,7 +169,12 @@ function CustomersManager() {
                 </td>
               </tr>
             ) : (
-              customers.map((customer) => (
+              customers
+              .filter(customer => {
+                const q = searchQuery.toLowerCase()
+                return !q || customer.name?.toLowerCase().includes(q) || customer.phone?.toLowerCase().includes(q) || customer.email?.toLowerCase().includes(q)
+              })
+              .map((customer) => (
                 <tr key={customer.id}>
                   <td><strong>{customer.name}</strong></td>
                   <td>{customer.phone || '-'}</td>
