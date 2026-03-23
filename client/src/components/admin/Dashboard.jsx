@@ -148,6 +148,13 @@ function Dashboard() {
     }
   }
 
+  const formatDate = (dateString) => {
+    if (!dateString) return ''
+    const datePart = dateString.includes('T') ? dateString.split('T')[0] : dateString.split(' ')[0]
+    const [year, month, day] = datePart.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -208,7 +215,10 @@ function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {activeStaysData.map(s => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                  <span style={{ color: '#2c3e50' }}>{s.dog_name}</span>
+                  <div>
+                    <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
+                    <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(s.check_in_date)} – {formatDate(s.check_out_date)}</div>
+                  </div>
                   <span style={{ fontWeight: '600', color: '#27ae60' }}>{formatCurrency(s.total_cost)}</span>
                 </div>
               ))}
@@ -220,7 +230,10 @@ function Dashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {upcomingStaysData.map(s => (
                   <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                    <span style={{ color: '#2c3e50' }}>{s.dog_name}</span>
+                    <div>
+                      <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
+                      <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(s.check_in_date)} – {formatDate(s.check_out_date)}</div>
+                    </div>
                     <span style={{ fontWeight: '600', color: '#3498db' }}>{formatCurrency(s.total_cost)}</span>
                   </div>
                 ))}
@@ -238,7 +251,10 @@ function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
               {unpaidBillsList.map(bill => (
                 <div key={bill.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                  <span style={{ color: '#2c3e50' }}>{bill.dog_names || bill.customer_name}</span>
+                  <div>
+                    <div style={{ color: '#2c3e50' }}>{bill.dog_names || bill.customer_name}</div>
+                    <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(bill.check_in_date)} – {formatDate(bill.check_out_date)}</div>
+                  </div>
                   <span style={{ fontWeight: '600', color: '#e67e22' }}>{formatCurrency(bill.total_amount)}</span>
                 </div>
               ))}
