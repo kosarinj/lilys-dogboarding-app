@@ -25,6 +25,7 @@ function Dashboard() {
   const [allBills, setAllBills] = useState([])
   const [allCustomers, setAllCustomers] = useState([])
   const [unpaidBillsList, setUnpaidBillsList] = useState([])
+  const [monthlyPaidList, setMonthlyPaidList] = useState([])
   const [activeStaysData, setActiveStaysData] = useState([])
   const [upcomingStaysData, setUpcomingStaysData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -89,14 +90,12 @@ function Dashboard() {
       const currentMonth = now.getMonth()
       const currentYear = now.getFullYear()
 
-      const monthlyRevenue = bills
-        .filter(b => {
-          const billDate = new Date(b.check_in_date || b.bill_date)
-          return billDate.getMonth() === currentMonth &&
-                 billDate.getFullYear() === currentYear &&
-                 b.status === 'paid'
-        })
-        .reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+      const monthlyPaid = bills.filter(b => {
+        const billDate = new Date(b.check_in_date || b.bill_date)
+        return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear && b.status === 'paid'
+      })
+      const monthlyRevenue = monthlyPaid.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+      setMonthlyPaidList(monthlyPaid)
 
       // Calculate total revenue
       const totalRevenue = bills
@@ -263,7 +262,20 @@ function Dashboard() {
         </div>
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e8e8e8' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#7f8c8d', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Monthly Revenue</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: 'var(--theme-primary, #f472b6)' }}>{formatCurrency(stats.monthlyRevenue)}</p>
+          <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: 'var(--theme-primary, #f472b6)', marginBottom: monthlyPaidList.length > 0 ? '12px' : '0' }}>{formatCurrency(stats.monthlyRevenue)}</p>
+          {monthlyPaidList.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[...monthlyPaidList].sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date)).map(bill => (
+                <div key={bill.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <div>
+                    <div style={{ color: '#2c3e50' }}>{bill.dog_names || bill.customer_name}</div>
+                    <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(bill.check_in_date)} – {formatDate(bill.check_out_date)}</div>
+                  </div>
+                  <span style={{ fontWeight: '600', color: 'var(--theme-primary, #f472b6)' }}>{formatCurrency(bill.total_amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <p style={{ fontSize: '12px', color: '#95a5a6', marginTop: '8px' }}>Total: {formatCurrency(stats.totalRevenue)}</p>
         </div>
       </div>
