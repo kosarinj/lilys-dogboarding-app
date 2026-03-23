@@ -213,7 +213,7 @@ function Dashboard() {
           <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#27ae60', marginBottom: activeStaysData.length > 0 ? '12px' : '0' }}>{stats.activeStays}</p>
           {activeStaysData.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {activeStaysData.map(s => (
+              {[...activeStaysData].sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date)).map(s => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                   <div>
                     <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
@@ -228,7 +228,7 @@ function Dashboard() {
             <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '12px', paddingTop: '10px' }}>
               <p style={{ fontSize: '11px', fontWeight: '600', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '6px' }}>Upcoming ({stats.upcomingStays})</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {upcomingStaysData.map(s => (
+                {[...upcomingStaysData].sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date)).map(s => (
                   <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                     <div>
                       <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
@@ -249,7 +249,7 @@ function Dashboard() {
           <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '8px', color: '#e67e22', marginBottom: unpaidBillsList.length > 0 ? '12px' : '0' }}>{formatCurrency(stats.unpaidBills)}</p>
           {unpaidBillsList.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-              {unpaidBillsList.map(bill => (
+              {[...unpaidBillsList].sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date)).map(bill => (
                 <div key={bill.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                   <div>
                     <div style={{ color: '#2c3e50' }}>{bill.dog_names || bill.customer_name}</div>
