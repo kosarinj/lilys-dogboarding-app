@@ -592,12 +592,15 @@ function InvoiceView({ bill, onClose }) {
                 <li>8+ hours: +100% of daily rate (full day care)</li>
               </ul>
             </div>
-            <div>
+            <div style={{ marginBottom: '8px' }}>
               <strong>Holiday Rates (Medium size):</strong>
               <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
                 <li>Day Care: {getHolidayRate('daycare') ? `$${getHolidayRate('daycare').toFixed(0)}/day` : 'Loading...'}</li>
                 <li>Boarding: {getHolidayRate('boarding') ? `$${getHolidayRate('boarding').toFixed(0)}/night` : 'Loading...'}</li>
               </ul>
+            </div>
+            <div>
+              <strong>Day Care Hours:</strong> Day Care is per day — drop-off around 7–9am, pick-up around 4–6pm.
             </div>
           </div>
 
