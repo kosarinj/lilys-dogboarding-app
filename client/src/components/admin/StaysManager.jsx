@@ -307,9 +307,9 @@ function StaysManager() {
       const selectedDog = dogs.find(d => d.id === parseInt(formData.dog_id))
       if (!selectedDog) return null
 
-      // Use custom daily rate if rate_type is 'custom', otherwise find the appropriate rate
+      // Mirror server logic: custom_daily_rate on the dog always wins, regardless of rate_type
       let dailyRate
-      if (formData.rate_type === 'custom' && selectedDog.custom_daily_rate) {
+      if (selectedDog.custom_daily_rate != null) {
         dailyRate = parseFloat(selectedDog.custom_daily_rate)
       } else {
         const lookupRateType = formData.rate_type === 'custom' ? 'regular' : formData.rate_type
