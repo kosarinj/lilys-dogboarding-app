@@ -593,7 +593,7 @@ function InvoiceView({ bill, onClose }) {
               </ul>
             </div>
             <div style={{ marginBottom: '8px' }}>
-              <strong>Holiday Rates (Medium size):</strong>
+              <strong>Holiday Rates:</strong>
               <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
                 <li>Day Care: {getHolidayRate('daycare') ? `$${getHolidayRate('daycare').toFixed(0)}/day` : 'Loading...'}</li>
                 <li>Boarding: {getHolidayRate('boarding') ? `$${getHolidayRate('boarding').toFixed(0)}/night` : 'Loading...'}</li>
