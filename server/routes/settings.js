@@ -1,5 +1,6 @@
 import express from 'express'
 import { query } from '../models/db.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -28,7 +29,7 @@ router.get('/:key', async (req, res) => {
 })
 
 // PUT /api/settings/:key - Update setting
-router.put('/:key', async (req, res) => {
+router.put('/:key', requireAuth, async (req, res) => {
   try {
     const { key } = req.params
     const { setting_value } = req.body
@@ -56,7 +57,7 @@ router.put('/:key', async (req, res) => {
 })
 
 // POST /api/settings/initialize - Create any missing default settings
-router.post('/initialize', async (req, res) => {
+router.post('/initialize', requireAuth, async (req, res) => {
   try {
     const defaultSettings = [
       { key: 'dropoff_fee', value: 15.00, description: 'Fee for drop-off service' },

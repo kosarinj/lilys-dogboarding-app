@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ratesAPI } from '../../utils/api'
+import { authHeader } from '../../utils/auth'
 import './admin.css'
 
 function InvoiceView({ bill, onClose }) {
@@ -142,7 +143,7 @@ function InvoiceView({ bill, onClose }) {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bills/${bill.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ status: 'sent' })
       })
       if (response.ok) {
@@ -161,7 +162,7 @@ function InvoiceView({ bill, onClose }) {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/bills/${bill.id}/send-sms`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ phone_number: phoneNumber })
       })
       const data = await response.json()

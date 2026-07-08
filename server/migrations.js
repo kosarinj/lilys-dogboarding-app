@@ -214,6 +214,25 @@ export async function runMigrations() {
       console.log('rate_type enum update skipped:', e.message)
     }
 
+    // Auth: ensure the admin_users table + supporting types exist (idempotent)
+    await query(`
+      DO $$ BEGIN
+        CREATE TYPE user_role AS ENUM ('admin', 'staff');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `)
+    await query(`
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        role user_role DEFAULT 'admin',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await query(`CREATE TABLE IF NOT EXISTS app_config (key VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)`)
+    console.log('✓ Auth tables (admin_users, app_config) ready')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

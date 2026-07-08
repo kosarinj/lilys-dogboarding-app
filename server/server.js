@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { runMigrations } from './migrations.js'
+import { requireAuth, initAuth } from './middleware/auth.js'
 
 // Import routes
 import authRoutes from './routes/auth.js'
@@ -40,16 +41,19 @@ const uploadsPath = process.env.NODE_ENV === 'production'
 app.use('/uploads', express.static(uploadsPath))
 
 // API Routes
+// Public: auth (login/bootstrap/status) and the guest bill view/payment flow.
+// Everything admin-facing is gated by requireAuth. bills & settings are gated
+// selectively inside their routers so guests can still view/pay a bill by code.
 app.use('/api/auth', authRoutes)
-app.use('/api/customers', customersRoutes)
-app.use('/api/dogs', dogsRoutes)
-app.use('/api/stays', staysRoutes)
+app.use('/api/customers', requireAuth, customersRoutes)
+app.use('/api/dogs', requireAuth, dogsRoutes)
+app.use('/api/stays', requireAuth, staysRoutes)
 app.use('/api/bills', billsRoutes)
 app.use('/api/payments', paymentsRoutes)
-app.use('/api/rates', ratesRoutes)
+app.use('/api/rates', requireAuth, ratesRoutes)
 app.use('/api/settings', settingsRoutes)
-app.use('/api/analytics', analyticsRoutes)
-app.use('/api/upload', uploadRoutes)
+app.use('/api/analytics', requireAuth, analyticsRoutes)
+app.use('/api/upload', requireAuth, uploadRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -77,6 +81,8 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`)
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`)
 
-  // Run database migrations
+  // Run database migrations, then load the JWT secret
   await runMigrations()
+  await initAuth()
+  console.log('✓ Auth initialized')
 })

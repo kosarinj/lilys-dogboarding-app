@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getToken, clearAuth } from './auth.js'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -8,6 +9,39 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
+
+// Attach the JWT to every request. Register on BOTH the shared instance and the global
+// axios default, since several components call axios directly rather than this instance.
+const attachToken = (config) => {
+  const token = getToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+}
+api.interceptors.request.use(attachToken)
+axios.interceptors.request.use(attachToken)
+
+// On 401 (expired/invalid session) clear auth and bounce to the login screen.
+const onUnauthorized = (error) => {
+  if (error?.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
+    clearAuth()
+    window.location.href = '/login'
+  }
+  return Promise.reject(error)
+}
+api.interceptors.response.use((r) => r, onUnauthorized)
+axios.interceptors.response.use((r) => r, onUnauthorized)
+
+// Auth API
+export const authAPI = {
+  status: () => api.get('/auth/status'),
+  bootstrap: (data) => api.post('/auth/bootstrap', data),
+  login: (data) => api.post('/auth/login', data),
+  me: () => api.get('/auth/me'),
+  listUsers: () => api.get('/auth/users'),
+  createUser: (data) => api.post('/auth/users', data),
+  deleteUser: (id) => api.delete(`/auth/users/${id}`),
+  changePassword: (data) => api.post('/auth/change-password', data)
+}
 
 // Customers API
 export const customersAPI = {

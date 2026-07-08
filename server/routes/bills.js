@@ -1,5 +1,6 @@
 import express from 'express'
 import { query } from '../models/db.js'
+import { requireAuth } from '../middleware/auth.js'
 import twilio from 'twilio'
 
 const router = express.Router()
@@ -21,7 +22,7 @@ function generateBillCode() {
 }
 
 // GET /api/bills/unbilled/stays - Get upcoming, active, and completed stays without bills (must be before /:id)
-router.get('/unbilled/stays', async (req, res) => {
+router.get('/unbilled/stays', requireAuth, async (req, res) => {
   try {
     const result = await query(`
       SELECT s.*, d.name as dog_name, d.size as dog_size, d.photo_url as dog_photo_url,
@@ -40,7 +41,7 @@ router.get('/unbilled/stays', async (req, res) => {
 })
 
 // GET /api/bills - Get all bills
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const result = await query(`
       SELECT b.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email,
@@ -58,7 +59,7 @@ router.get('/', async (req, res) => {
 })
 
 // GET /api/bills/:id - Get bill by id
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -142,7 +143,7 @@ router.get('/code/:code', async (req, res) => {
 })
 
 // POST /api/bills - Create bill from stays
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const { customer_id, stay_ids, notes } = req.body
 
@@ -215,7 +216,7 @@ router.post('/', async (req, res) => {
 })
 
 // PUT /api/bills/:id - Update bill
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params
     const { status, paid_amount, payment_method, notes } = req.body
@@ -242,7 +243,7 @@ router.put('/:id', async (req, res) => {
 })
 
 // DELETE /api/bills/:id - Delete bill
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -263,7 +264,7 @@ router.delete('/:id', async (req, res) => {
 })
 
 // POST /api/bills/:id/send-sms - Send bill link via SMS
-router.post('/:id/send-sms', async (req, res) => {
+router.post('/:id/send-sms', requireAuth, async (req, res) => {
   try {
     const { id } = req.params
     const { phone_number } = req.body
