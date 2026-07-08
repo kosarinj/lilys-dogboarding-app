@@ -27,10 +27,14 @@ function AdminPage() {
 
   return (
     <div className="admin-layout">
-      {/* Sidebar Navigation */}
+      {/* Top Navigation */}
       <nav className="sidebar">
         <div className="sidebar-header">
-          <h2 className="sidebar-title">🐕 Lily's Dog Boarding</h2>
+          <h2 className="sidebar-title">🐾 Lily's Dog Boarding</h2>
+          <div className="sidebar-user">
+            {user && <span className="sidebar-username">{user.name || user.email}</span>}
+            <button onClick={handleLogout} className="logout-btn">🚪 Log out</button>
+          </div>
         </div>
         <ul className="sidebar-menu">
           <li>
@@ -82,14 +86,6 @@ function AdminPage() {
             </Link>
           </li>
         </ul>
-
-        <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-          {user && <div style={{ fontSize: '13px', opacity: 0.85, marginBottom: '8px' }}>Signed in as<br /><strong>{user.name || user.email}</strong></div>}
-          <button onClick={handleLogout}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.3)', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: '14px' }}>
-            🚪 Log out
-          </button>
-        </div>
       </nav>
 
       {/* Main Content */}
