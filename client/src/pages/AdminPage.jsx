@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-r
 import UsersManager from '../components/admin/UsersManager'
 import { getUser, clearAuth } from '../utils/auth'
 import Dashboard from '../components/admin/Dashboard'
+import Calendar from '../components/admin/Calendar'
 import CustomersManager from '../components/admin/CustomersManager'
 import DogsManager from '../components/admin/DogsManager'
 import StaysManager from '../components/admin/StaysManager'
@@ -62,6 +63,12 @@ function AdminPage() {
             </Link>
           </li>
           <li>
+            <Link to="/admin/calendar" className={`menu-item ${isActive('/admin/calendar') ? 'active' : ''}`}>
+              <span className="menu-icon">🗓️</span>
+              <span>Calendar</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/admin/billing" className={`menu-item ${isActive('/admin/billing') ? 'active' : ''}`}>
               <span className="menu-icon">💳</span>
               <span>Billing</span>
@@ -96,6 +103,7 @@ function AdminPage() {
           <Route path="/customers" element={<CustomersManager />} />
           <Route path="/dogs" element={<DogsManager />} />
           <Route path="/stays" element={<StaysManager />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/billing" element={<BillingManager />} />
           <Route path="/rates" element={<RatesConfig />} />
           <Route path="/analytics" element={<Analytics />} />
