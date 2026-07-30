@@ -28,6 +28,8 @@ function Dashboard() {
   const [monthlyPaidList, setMonthlyPaidList] = useState([])
   const [activeStaysData, setActiveStaysData] = useState([])
   const [upcomingStaysData, setUpcomingStaysData] = useState([])
+  const [todayStarts, setTodayStarts] = useState([])
+  const [showTodayBanner, setShowTodayBanner] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -60,6 +62,15 @@ function Dashboard() {
       const customers = customersRes.data
       const stays = staysRes.data
       const bills = billsRes.data
+
+      // Stays whose check-in is TODAY (local date) — for the reminder banner.
+      const nowD = new Date()
+      const todayStr = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, '0')}-${String(nowD.getDate()).padStart(2, '0')}`
+      setTodayStarts(
+        stays
+          .filter(s => String(s.check_in_date).slice(0, 10) === todayStr && s.status !== 'cancelled')
+          .sort((a, b) => String(a.check_in_time || '').localeCompare(String(b.check_in_time || '')))
+      )
 
       // Count and calculate totals for each stay status
       const activeStaysData = stays.filter(s => s.status === 'active')
@@ -190,8 +201,37 @@ function Dashboard() {
 
   if (loading) return <div className="loading-state">Loading dashboard...</div>
 
+  const reminderLink = { textDecoration: 'none', fontSize: 13, fontWeight: 600, color: '#b45309', background: '#fff', border: '1px solid #fcd34d', borderRadius: 8, padding: '4px 10px', whiteSpace: 'nowrap' }
+
   return (
     <div>
+      {/* Flashing reminder: stays that start today */}
+      {showTodayBanner && todayStarts.length > 0 && (
+        <div className="today-reminder-flash" style={{ border: '2px solid #f59e0b', borderRadius: 12, padding: '14px 18px', marginBottom: 20, position: 'relative' }}>
+          <button onClick={() => setShowTodayBanner(false)} aria-label="Dismiss" style={{ position: 'absolute', top: 8, right: 12, background: 'transparent', border: 'none', fontSize: 20, cursor: 'pointer', color: '#92400e', lineHeight: 1 }}>×</button>
+          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 8, fontSize: 15 }}>
+            🔔 {todayStarts.length === 1 ? 'A stay starts TODAY' : `${todayStarts.length} stays start TODAY`}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {todayStarts.map(s => {
+              const msg = `Hi ${s.customer_name || ''}! Just a reminder that ${s.dog_name || 'your dog'}'s boarding stay with Lily starts today${s.check_in_time ? ' at ' + s.check_in_time : ''}. See you soon! 🐾`
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, color: '#78350f' }}>🐾 {s.dog_name}</span>
+                  <span style={{ color: '#92400e' }}>({s.customer_name}{s.check_in_time ? ` · ${s.check_in_time}` : ''})</span>
+                  {s.customer_phone && (
+                    <>
+                      <a href={`tel:${s.customer_phone}`} style={reminderLink}>📞 Call</a>
+                      <a href={`sms:${s.customer_phone}?&body=${encodeURIComponent(msg)}`} style={reminderLink}>💬 Text reminder</a>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="admin-header">
         <h1>Dashboard</h1>
       </div>
