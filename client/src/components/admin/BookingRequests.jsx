@@ -89,7 +89,7 @@ export default function BookingRequests() {
       // only if they think to look — so hand her the message ready to send.
       setNote({
         tone: 'ok',
-        text: `Approved ${row.dog_name}. ${r.data?.note || ''}`.trim(),
+        text: `Approved ${row.dog_name} — awaiting payment. ${r.data?.note || ''}`.trim(),
         msgFor: row,
       })
       await load()
@@ -127,6 +127,28 @@ export default function BookingRequests() {
     try { await navigator.clipboard.writeText(text) }
     catch { window.prompt('Copy this message:', text) }
     setNote({ tone: 'ok', text: 'Message copied — paste it into a text.' })
+  }
+
+  const markPaid = async (row, method) => {
+    setBusyId(row.id)
+    try {
+      await api.post(`/stays/requests/${row.id}/mark-paid`, { method })
+      setNote({ tone: 'ok', text: `${row.dog_name} marked paid — now confirmed.` })
+      await load()
+    } catch (e) {
+      setNote({ tone: 'bad', text: e.response?.data?.error || 'Could not mark paid' })
+    } finally { setBusyId(null) }
+  }
+
+  const unmarkPaid = async (row) => {
+    setBusyId(row.id)
+    try {
+      await api.post(`/stays/requests/${row.id}/unmark-paid`, {})
+      setNote({ tone: 'ok', text: 'Back to awaiting payment.' })
+      await load()
+    } catch (e) {
+      setNote({ tone: 'bad', text: e.response?.data?.error || 'Could not undo' })
+    } finally { setBusyId(null) }
   }
 
   const undo = async (row) => {
@@ -190,14 +212,34 @@ export default function BookingRequests() {
                   {fmt(row.check_in_date)}–{fmt(row.check_out_date)}
                   <span style={{
                     marginLeft: 8, fontWeight: 700,
-                    color: row.status === 'cancelled' ? '#c0392b' : '#27ae60',
+                    color: row.status === 'cancelled' ? '#c0392b'
+                         : isPaid(row) ? '#27ae60' : '#e67e22',
                   }}>
-                    {row.status === 'cancelled' ? 'cancelled' : 'confirmed'}
+                    {row.status === 'cancelled' ? 'cancelled'
+                     : isPaid(row) ? 'confirmed' : 'awaiting payment'}
                   </span>
+                  {row.status !== 'cancelled' && (
+                    <span style={{ marginLeft: 8, color: '#6c7a89' }}>
+                      ${Number(row.total_cost || 0).toFixed(2)}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {row.status !== 'cancelled' && (
                     <>
+                      {!isPaid(row) ? (
+                        <>
+                          <button onClick={() => markPaid(row, 'venmo')} disabled={busyId === row.id}
+                            style={{ ...smallBtn, background: '#008CFF' }}>Paid — Venmo</button>
+                          <button onClick={() => markPaid(row, 'zelle')} disabled={busyId === row.id}
+                            style={{ ...smallBtn, background: '#6D1ED4' }}>Zelle</button>
+                          <button onClick={() => markPaid(row, 'cash')} disabled={busyId === row.id}
+                            style={{ ...smallBtn, background: '#27ae60' }}>Cash</button>
+                        </>
+                      ) : (
+                        <button onClick={() => unmarkPaid(row)} disabled={busyId === row.id}
+                          style={{ ...smallBtn, background: '#95a5a6' }}>Undo paid</button>
+                      )}
                       <button onClick={() => copyMessage(row)}
                         style={{ ...smallBtn, background: '#2980b9' }}>Copy message</button>
                       <button onClick={() => undo(row)} disabled={busyId === row.id}
@@ -318,6 +360,10 @@ export default function BookingRequests() {
     </div>
   )
 }
+
+// A card capture and a hand-marked Venmo both mean settled; anything else is
+// still owed.
+const isPaid = (row) => row.payment_state === 'paid' || row.payment_state === 'captured'
 
 const smallBtn = {
   padding: '6px 10px', fontSize: 12, fontWeight: 600, color: '#fff',

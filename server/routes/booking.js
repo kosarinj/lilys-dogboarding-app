@@ -50,7 +50,9 @@ router.get('/:code', async (req, res) => {
     }))
 
     const upcoming = await query(`
-      SELECT s.id, s.check_in_date, s.check_out_date, s.status, s.total_cost, d.name AS dog_name
+      SELECT s.id, s.check_in_date, s.check_out_date, s.status, s.total_cost, s.payment_state,
+             (s.payment_state IN ('paid', 'captured')) AS paid,
+             d.name AS dog_name
       FROM stays s JOIN dogs d ON s.dog_id = d.id
       WHERE d.customer_id = $1 AND s.check_out_date >= CURRENT_DATE
         AND s.status IN ('requested', 'upcoming', 'active')

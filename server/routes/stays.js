@@ -656,11 +656,22 @@ router.post('/requests/:id/approve', async (req, res) => {
     }
 
     const status = toDateStr(stay.check_in_date) <= todayStr() ? 'active' : 'upcoming'
+
+    // A card capture IS the payment, so those are settled. Everything else is
+    // Venmo, Zelle or cash, which nothing can detect — so it waits to be marked
+    // paid by hand.
+    //
+    // Note this rides on payment_state, NOT a new stay status. The stay is
+    // genuinely booked and occupies a kennel whether or not the money has
+    // landed, and a separate status would drop it out of every
+    // status IN ('upcoming','active') query — calendar, capacity, analytics.
+    const payState = stay.payment_state === 'captured' ? 'captured' : 'awaiting'
     await query(
-      `UPDATE stays SET status = $2::stay_status, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [id, status]
+      `UPDATE stays SET status = $2::stay_status, payment_state = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [id, status, payState]
     )
-    res.json({ success: true, status, note: paymentNote })
+    res.json({ success: true, status, payment_state: payState, note: paymentNote })
   } catch (e) {
     console.error('Approve error:', e.message)
     res.status(500).json({ error: e.message })
@@ -741,6 +752,45 @@ router.post('/requests/:id/undo', async (req, res) => {
     res.json({ success: true, moneyNote })
   } catch (e) {
     console.error('Undo error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * POST /api/stays/requests/:id/mark-paid — the Venmo or Zelle arrived.
+ *
+ * Manual because it has to be: neither service tells the app anything, so the
+ * only thing that knows the money landed is Lily looking at her phone. Recording
+ * it here is what separates "booked" from "booked and settled" on both her
+ * screen and the customer's.
+ */
+router.post('/requests/:id/mark-paid', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { method } = req.body || {}
+    const r = await query(`SELECT id, payment_state FROM stays WHERE id = $1`, [id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Stay not found' })
+
+    await query(`
+      UPDATE stays SET payment_state = 'paid', payment_method = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [id, method || null])
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Mark paid error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/** Undo a mark-paid, for the inevitable mis-click. */
+router.post('/requests/:id/unmark-paid', async (req, res) => {
+  try {
+    await query(
+      `UPDATE stays SET payment_state = 'awaiting', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [req.params.id]
+    )
+    res.json({ success: true })
+  } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PAY_TO, venmoLink, copyZelle } from '../../utils/payTo'
+import { PAY_TO, venmoLink, copyZelle, copyVenmo } from '../../utils/payTo'
 
 /**
  * Venmo and Zelle, as actual buttons rather than text to copy out by hand.
@@ -11,6 +11,14 @@ import { PAY_TO, venmoLink, copyZelle } from '../../utils/payTo'
  */
 export default function PayButtons({ amount, note, compact = false }) {
   const [copied, setCopied] = useState(false)
+  const [copiedVenmo, setCopiedVenmo] = useState(false)
+
+  const onCopyVenmo = async () => {
+    const ok = await copyVenmo()
+    if (!ok) window.prompt('Venmo handle:', `@${PAY_TO.venmo}`)
+    setCopiedVenmo(true)
+    setTimeout(() => setCopiedVenmo(false), 2500)
+  }
 
   const onZelle = async () => {
     const ok = await copyZelle()
@@ -38,8 +46,19 @@ export default function PayButtons({ amount, note, compact = false }) {
       <div style={{ fontSize: 12, color: '#6c7a89', marginTop: 8, lineHeight: 1.6 }}>
         {copied
           ? <>Send <strong>{amount > 0 ? `$${Number(amount).toFixed(2)}` : 'the amount'}</strong> to <strong>{PAY_TO.zelle}</strong> in your bank's app.</>
-          : <>Venmo <strong>@{PAY_TO.venmo}</strong> · Zelle <strong>{PAY_TO.zelle}</strong>{PAY_TO.cash ? ' · cash accepted' : ''}</>}
+          : copiedVenmo
+            ? <>Venmo handle <strong>@{PAY_TO.venmo}</strong> copied — search it in the Venmo app.</>
+            : <>Venmo <strong>@{PAY_TO.venmo}</strong> · Zelle <strong>{PAY_TO.zelle}</strong>{PAY_TO.cash ? ' · cash accepted' : ''}</>}
       </div>
+
+      {/* The Venmo link needs them logged in, and on desktop it can land on a
+          sign-in wall instead of the payment. A way to just get the handle
+          means the button can't dead-end. */}
+      <button onClick={onCopyVenmo}
+        style={{ marginTop: 6, padding: 0, border: 'none', background: 'transparent',
+                 color: '#008CFF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+        Venmo didn't open? Copy the handle instead
+      </button>
 
       {!compact && (
         <div style={{ fontSize: 11.5, color: '#95a5a6', marginTop: 6 }}>

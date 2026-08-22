@@ -12,17 +12,36 @@ export const PAY_TO = {
 }
 
 /**
- * Venmo deep link with the amount and reason filled in.
+ * Venmo link with the amount and reason filled in.
  *
- * On a phone this hands off to the Venmo app; on a desktop it opens the web
- * flow. Either way the customer isn't retyping an amount, which is where
- * paying the wrong figure comes from.
+ * The recipient goes in the QUERY STRING, not the path. venmo.com/<user>?txn=pay
+ * just loads a profile page and ignores the rest, which is why the button
+ * appeared to do nothing — it opened a tab that looked like it had gone
+ * nowhere. This is the documented pay form and actually prefills.
+ *
+ * On a phone Venmo's site hands off to the app; on a desktop it opens the web
+ * flow behind a login. Either way the customer isn't retyping an amount, which
+ * is where paying the wrong figure comes from.
  */
 export function venmoLink(amount, note) {
-  const params = new URLSearchParams({ txn: 'pay' })
+  const params = new URLSearchParams({
+    txn: 'pay',
+    audience: 'private',
+    recipients: PAY_TO.venmo,
+  })
   if (amount > 0) params.set('amount', Number(amount).toFixed(2))
   if (note) params.set('note', note)
-  return `https://venmo.com/${PAY_TO.venmo}?${params.toString()}`
+  return `https://venmo.com/?${params.toString()}`
+}
+
+/** The handle itself, for when the link doesn't get them there. */
+export async function copyVenmo() {
+  try {
+    await navigator.clipboard.writeText(`@${PAY_TO.venmo}`)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

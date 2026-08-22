@@ -132,20 +132,25 @@ export default function BookingPage() {
           {data.upcoming.map(s => (
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 14 }}>
               <span>{s.dog_name} · {fmt(s.check_in_date)} – {fmt(s.check_out_date)}</span>
-              <span style={{ color: s.status === 'requested' ? '#b8860b' : '#27ae60', fontWeight: 600 }}>
-                {s.status === 'requested' ? 'Awaiting confirmation' : 'Confirmed'}
+              <span style={{
+                fontWeight: 600,
+                color: s.status === 'requested' ? '#b8860b'
+                     : s.paid ? '#27ae60' : '#e67e22',
+              }}>
+                {s.status === 'requested' ? 'Awaiting confirmation'
+                 : s.paid ? 'Confirmed' : 'Awaiting payment'}
               </span>
             </div>
           ))}
           {/* A confirmed stay is one she's agreed to, so it can be paid now.
               Nothing is owed on a request she hasn't accepted yet. */}
-          {data.upcoming.some(s => s.status !== 'requested') && !data.cardPayments && (
+          {data.upcoming.some(s => s.status !== 'requested' && !s.paid) && !data.cardPayments && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0d5de' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#2c3e50', marginBottom: 8 }}>
                 Pay for a confirmed stay
               </div>
               <PayButtons
-                amount={data.upcoming.filter(s => s.status !== 'requested')
+                amount={data.upcoming.filter(s => s.status !== 'requested' && !s.paid)
                   .reduce((t, s) => t + Number(s.total_cost || 0), 0)}
                 note="Dog boarding"
                 compact
