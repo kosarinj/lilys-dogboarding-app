@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import PayButtons from '../components/shared/PayButtons'
 
 /**
  * Customer booking page, reached by a link Lily hands out.
@@ -115,8 +116,8 @@ export default function BookingPage() {
 
       {justRequested && (
         <Banner tone="ok">
-          <strong>Request sent.</strong> Lily will confirm shortly.
-          {data.cardPayments && ' Your card is held but not charged — it only goes through when she approves.'}
+          <strong>Request sent.</strong> Lily will confirm shortly — nothing is booked until she does.
+          {data.cardPayments && ' Your card is held but not charged; it only goes through when she approves.'}
         </Banner>
       )}
       {cancelled && (
@@ -136,6 +137,21 @@ export default function BookingPage() {
               </span>
             </div>
           ))}
+          {/* A confirmed stay is one she's agreed to, so it can be paid now.
+              Nothing is owed on a request she hasn't accepted yet. */}
+          {data.upcoming.some(s => s.status !== 'requested') && !data.cardPayments && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0d5de' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#2c3e50', marginBottom: 8 }}>
+                Pay for a confirmed stay
+              </div>
+              <PayButtons
+                amount={data.upcoming.filter(s => s.status !== 'requested')
+                  .reduce((t, s) => t + Number(s.total_cost || 0), 0)}
+                note="Dog boarding"
+                compact
+              />
+            </div>
+          )}
         </section>
       )}
 

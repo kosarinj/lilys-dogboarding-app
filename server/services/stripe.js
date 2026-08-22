@@ -122,10 +122,31 @@ export async function createBookingCheckoutSession({ stayId, customer, amount, d
   })
 }
 
-/** Take a held payment. Called when Lily approves a request. */
-export async function capturePaymentIntent(paymentIntentId) {
+/**
+ * Take a held payment, optionally less than was held.
+ *
+ * Stripe allows capturing BELOW the authorized amount but never above it. So a
+ * tweak that lowers the price just captures less, while one that raises it
+ * can't be collected from this hold at all — the caller has to know the
+ * difference, which is why getAuthorizedAmount exists.
+ */
+export async function capturePaymentIntent(paymentIntentId, amount = null) {
   const s = getStripe()
-  return s.paymentIntents.capture(paymentIntentId)
+  if (amount == null) return s.paymentIntents.capture(paymentIntentId)
+  return s.paymentIntents.capture(paymentIntentId, { amount_to_capture: toCents(amount) })
+}
+
+/** What's actually held, in dollars — the ceiling on what can be captured. */
+export async function getAuthorizedAmount(paymentIntentId) {
+  const s = getStripe()
+  const pi = await s.paymentIntents.retrieve(paymentIntentId)
+  return fromCents(pi.amount)
+}
+
+/** Give back money already taken. Used when a confirmed booking is cancelled. */
+export async function refundPaymentIntent(paymentIntentId) {
+  const s = getStripe()
+  return s.refunds.create({ payment_intent: paymentIntentId })
 }
 
 /** Release a held payment. Called when she declines. */

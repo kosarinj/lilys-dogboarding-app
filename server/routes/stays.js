@@ -1,7 +1,8 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { checkAvailability } from '../services/availability.js'
-import { capturePaymentIntent, cancelPaymentIntent } from '../services/stripe.js'
+import { capturePaymentIntent, cancelPaymentIntent, getAuthorizedAmount, refundPaymentIntent } from '../services/stripe.js'
+import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 // Same generator as the booking codes: one alphabet, chosen so codes read
 // cleanly over the phone.
 import { generateBookingCode } from '../utils/bookingCode.js'
@@ -39,31 +40,8 @@ function getPuppyFee(fees, stay_type, rate_type) {
   }
 }
 
-// Helper function to calculate partial day addition based on checkout time vs checkin time
-// If checkout is past checkin time: 2-7 hrs = +0.5 day, 8+ hrs = +1 day
-function getPartialDayAddition(check_in_time, check_out_time) {
-  if (!check_in_time || !check_out_time) {
-    return 0 // No partial day if times not specified
-  }
-
-  const [inHour, inMin] = check_in_time.split(':').map(Number)
-  const [outHour, outMin] = check_out_time.split(':').map(Number)
-  const inMinutes = inHour * 60 + inMin
-  const outMinutes = outHour * 60 + outMin
-  const hours = (outMinutes - inMinutes) / 60
-
-  // If checkout is before or at checkin time, no extra partial day
-  if (hours <= 0) {
-    return 0
-  }
-
-  if (hours >= 8) {
-    return 1.0 // Full extra day
-  } else if (hours >= 2) {
-    return 0.5 // Half day
-  }
-  return 0 // Less than 2 hours, no extra charge
-}
+// getPartialDayAddition now lives in services/pricing.js and is imported above —
+// the booking quote needs the same rule, and two copies would drift.
 
 // GET /api/stays
 router.get('/', async (req, res) => {
@@ -545,6 +523,93 @@ router.get('/requests/pending', async (req, res) => {
   }
 })
 
+/**
+ * PATCH /api/stays/requests/:id — adjust a request before approving it.
+ *
+ * Customers get dates and times slightly wrong, or she wants to shift a pick-up
+ * an hour. Making her decline and ask them to redo it would lose the card hold
+ * along with the request, so she edits in place and the price follows.
+ *
+ * Repricing goes through the same quote used by the booking page, so an edited
+ * request can't end up on a basis of its own.
+ */
+router.patch('/requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const r = await query(`
+      SELECT s.*, d.customer_id FROM stays s JOIN dogs d ON s.dog_id = d.id
+      WHERE s.id = $1 AND s.status = 'requested'
+    `, [id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Request not found' })
+    const stay = r.rows[0]
+
+    // Anything omitted keeps its current value, so she can change one field.
+    const check_in_date = req.body.check_in_date || toDateStr(stay.check_in_date)
+    const check_out_date = req.body.check_out_date || toDateStr(stay.check_out_date)
+    const check_in_time = req.body.check_in_time ?? stay.check_in_time
+    const check_out_time = req.body.check_out_time ?? stay.check_out_time
+    const requires_dropoff = req.body.requires_dropoff ?? stay.requires_dropoff
+    const requires_pickup = req.body.requires_pickup ?? stay.requires_pickup
+
+    if (check_out_date <= check_in_date) {
+      return res.status(400).json({ error: 'Check-out must be after check-in' })
+    }
+
+    // Capacity, excluding this request so it doesn't collide with itself.
+    const avail = await checkAvailability(check_in_date, check_out_date, { excludeStayId: Number(id) })
+    if (!avail.available) {
+      return res.status(409).json({ error: `Full on ${avail.fullNights.join(', ')}` })
+    }
+
+    const partial_day = getPartialDayAddition(check_in_time, check_out_time)
+    const days_count = avail.nights.length + partial_day
+    const priced = await quoteStay({
+      dog_id: stay.dog_id, days_count,
+      stay_type: stay.stay_type, rate_type: stay.rate_type,
+      requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,
+    })
+
+    // A held card caps what can ever be collected — Stripe won't capture above
+    // the authorization. Say so plainly rather than letting her approve and
+    // discover the shortfall afterwards.
+    let paymentWarning = null
+    if (stay.payment_intent_id && stay.payment_state === 'authorized') {
+      try {
+        const held = await getAuthorizedAmount(stay.payment_intent_id)
+        if (priced.total_cost > held + 0.005) {
+          paymentWarning =
+            `Only ${held.toFixed(2)} is held. Approving takes that amount; ` +
+            `the extra ${(priced.total_cost - held).toFixed(2)} needs billing separately.`
+        } else if (priced.total_cost < held - 0.005) {
+          paymentWarning = `Only ${priced.total_cost.toFixed(2)} of the ${held.toFixed(2)} hold will be taken.`
+        }
+      } catch (e) {
+        paymentWarning = `Could not read the card hold: ${e.message}`
+      }
+    }
+
+    await query(`
+      UPDATE stays SET
+        check_in_date = $2, check_out_date = $3,
+        check_in_time = $4, check_out_time = $5,
+        requires_dropoff = $6, requires_pickup = $7,
+        dropoff_fee = $8, pickup_fee = $9,
+        days_count = $10, daily_rate = $11, total_cost = $12,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [
+      id, check_in_date, check_out_date, check_in_time, check_out_time,
+      !!requires_dropoff, !!requires_pickup, priced.dropoff_fee, priced.pickup_fee,
+      days_count, priced.daily_rate, priced.total_cost,
+    ])
+
+    res.json({ success: true, quote: priced, paymentWarning })
+  } catch (e) {
+    console.error('Edit request error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // Approve: take the held money, then confirm. In that order deliberately — if
 // the capture fails (an authorization older than about 7 days has expired), the
 // stay stays a request rather than becoming a confirmed booking nobody paid for.
@@ -558,9 +623,17 @@ router.post('/requests/:id/approve', async (req, res) => {
     let paymentNote = null
     if (stay.payment_intent_id && stay.payment_state === 'authorized') {
       try {
-        await capturePaymentIntent(stay.payment_intent_id)
+        // Capture the current total, which may be lower than what was held if
+        // she trimmed the request. Never higher — Stripe refuses, and the edit
+        // endpoint has already warned her.
+        const held = await getAuthorizedAmount(stay.payment_intent_id)
+        const take = Math.min(Number(stay.total_cost), held)
+        await capturePaymentIntent(stay.payment_intent_id, take)
         await query(`UPDATE stays SET payment_state = 'captured' WHERE id = $1`, [id])
-        paymentNote = 'Card charged.'
+        paymentNote = `Charged $${take.toFixed(2)}.`
+        if (Number(stay.total_cost) > held + 0.005) {
+          paymentNote += ` $${(Number(stay.total_cost) - held).toFixed(2)} still owing — send a payment link.`
+        }
       } catch (e) {
         await query(`UPDATE stays SET payment_state = 'expired' WHERE id = $1`, [id])
         return res.status(402).json({
@@ -590,6 +663,84 @@ router.post('/requests/:id/approve', async (req, res) => {
     res.json({ success: true, status, note: paymentNote })
   } catch (e) {
     console.error('Approve error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * GET /api/stays/requests/recent — requests she's already acted on.
+ *
+ * Approving used to make a request vanish from the only screen that knew about
+ * it, so a booking approved by mistake had nowhere to be undone. Recent
+ * decisions stay visible for a fortnight: long enough to catch a mistake, short
+ * enough not to turn into a second stays list.
+ */
+router.get('/requests/recent', async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT s.*, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      FROM stays s
+      JOIN dogs d ON s.dog_id = d.id
+      JOIN customers c ON d.customer_id = c.id
+      WHERE s.requested_at IS NOT NULL
+        AND s.status <> 'requested'
+        AND s.requested_at > CURRENT_TIMESTAMP - INTERVAL '14 days'
+      ORDER BY s.updated_at DESC
+      LIMIT 25
+    `)
+    res.json(r.rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * POST /api/stays/requests/:id/undo — cancel a booking she already approved.
+ *
+ * Separate from decline because by this point the money has usually moved: a
+ * declined request only ever had a hold to release, while this may need a
+ * refund. The refund is attempted but never blocks the cancellation — leaving a
+ * kennel blocked because a refund call failed is the worse outcome — and the
+ * response says plainly whether the money actually came back.
+ */
+router.post('/requests/:id/undo', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body || {}
+    const r = await query(`SELECT * FROM stays WHERE id = $1`, [id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Stay not found' })
+    const stay = r.rows[0]
+    if (stay.status === 'cancelled') return res.status(400).json({ error: 'Already cancelled' })
+
+    let moneyNote = 'No card payment was involved.'
+    if (stay.payment_intent_id) {
+      if (stay.payment_state === 'captured') {
+        try {
+          const refund = await refundPaymentIntent(stay.payment_intent_id)
+          await query(`UPDATE stays SET payment_state = 'refunded' WHERE id = $1`, [id])
+          moneyNote = `Refunded $${(Number(refund.amount) / 100).toFixed(2)}.`
+        } catch (e) {
+          moneyNote = `REFUND FAILED — ${e.message}. Refund it in Stripe by hand.`
+        }
+      } else if (stay.payment_state === 'authorized') {
+        try {
+          await cancelPaymentIntent(stay.payment_intent_id)
+          await query(`UPDATE stays SET payment_state = 'released' WHERE id = $1`, [id])
+          moneyNote = 'Card hold released.'
+        } catch (e) {
+          moneyNote = `Could not release the hold: ${e.message}`
+        }
+      }
+    }
+
+    await query(`
+      UPDATE stays SET status = 'cancelled', decline_reason = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [id, reason ? String(reason).slice(0, 500) : 'Cancelled after approval'])
+
+    res.json({ success: true, moneyNote })
+  } catch (e) {
+    console.error('Undo error:', e.message)
     res.status(500).json({ error: e.message })
   }
 })

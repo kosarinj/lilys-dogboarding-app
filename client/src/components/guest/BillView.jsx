@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import PayButtons from '../shared/PayButtons'
 
 function BillView({ billCode }) {
   const [bill, setBill] = useState(null)
@@ -515,11 +516,15 @@ function BillView({ billCode }) {
               </div>
             </div>
           )}
-          <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
-            <div><strong>Cash:</strong> Accepted</div>
-            <div><strong>Venmo:</strong> @lilykos</div>
-            <div><strong>Zelle:</strong> lilykos@me.com</div>
-          </div>
+          {amountDue > 0 && bill.status !== 'cancelled' ? (
+            <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} />
+          ) : (
+            <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
+              <div><strong>Cash:</strong> Accepted</div>
+              <div><strong>Venmo:</strong> @lilykos</div>
+              <div><strong>Zelle:</strong> lilykos@me.com</div>
+            </div>
+          )}
         </div>
 
         {/* Status Badge */}
