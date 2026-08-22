@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './pages/LoginPage'
 import AdminPage from './pages/AdminPage'
 import BillPage from './pages/BillPage'
+import BookingPage from './pages/BookingPage'
 import { isLoggedIn } from './utils/auth'
 
 // Guard admin pages: send un-authenticated visitors to the login screen.
@@ -17,6 +18,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/*" element={<RequireAuth><AdminPage /></RequireAuth>} />
         <Route path="/bill/:billCode" element={<BillPage />} />
+        {/* Public, like the bill page — the code in the link is the access. */}
+        <Route path="/book/:code" element={<BookingPage />} />
       </Routes>
     </Router>
   )
