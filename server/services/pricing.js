@@ -11,6 +11,22 @@ import { query } from '../models/db.js'
  * Mirrors the calculation that lived inline in POST /api/stays.
  */
 
+/**
+ * Extra charge when pick-up is later in the day than drop-off was.
+ * 2–7 hours later adds half a day, 8+ adds a full one. Mirrors the rule in
+ * POST /api/stays so a customer's quote matches what she would have charged.
+ */
+export function getPartialDayAddition(check_in_time, check_out_time) {
+  if (!check_in_time || !check_out_time) return 0
+  const [inH, inM] = String(check_in_time).split(':').map(Number)
+  const [outH, outM] = String(check_out_time).split(':').map(Number)
+  if ([inH, inM, outH, outM].some(n => !Number.isFinite(n))) return 0
+  const hours = ((outH * 60 + outM) - (inH * 60 + inM)) / 60
+  if (hours >= 8) return 1.0
+  if (hours >= 2) return 0.5
+  return 0
+}
+
 export async function getFees() {
   const result = await query(`SELECT setting_key, setting_value FROM settings WHERE setting_key IN (
     'dropoff_fee', 'pickup_fee',

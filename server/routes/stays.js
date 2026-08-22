@@ -5,6 +5,7 @@ import { capturePaymentIntent, cancelPaymentIntent } from '../services/stripe.js
 // Same generator as the booking codes: one alphabet, chosen so codes read
 // cleanly over the phone.
 import { generateBookingCode } from '../utils/bookingCode.js'
+import { toDateStr, todayStr } from '../utils/dates.js'
 
 const router = express.Router()
 
@@ -494,7 +495,7 @@ router.post('/:id/payment-link', async (req, res) => {
       RETURNING id, bill_code
     `, [
       stay.customer_id, code,
-      String(stay.check_in_date).slice(0, 10),   // due before the stay starts — the point is paying up front
+      toDateStr(stay.check_in_date),   // due before the stay starts — the point is paying up front
       total,
       `Advance payment for ${stay.dog_name}`,
     ])
@@ -504,7 +505,7 @@ router.post('/:id/payment-link', async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6)
     `, [
       bill.rows[0].id, stay.id,
-      `${stay.dog_name} — ${String(stay.check_in_date).slice(0, 10)} to ${String(stay.check_out_date).slice(0, 10)}`,
+      `${stay.dog_name} — ${toDateStr(stay.check_in_date)} to ${toDateStr(stay.check_out_date)}`,
       Math.max(1, Math.ceil(Number(stay.days_count) || 1)),
       Number(stay.daily_rate) || total,
       total,
@@ -572,8 +573,8 @@ router.post('/requests/:id/approve', async (req, res) => {
     // occupying space, but she can also add stays by hand, so the picture may
     // have changed since the request came in.
     const avail = await checkAvailability(
-      String(stay.check_in_date).slice(0, 10),
-      String(stay.check_out_date).slice(0, 10),
+      toDateStr(stay.check_in_date),
+      toDateStr(stay.check_out_date),
       { excludeStayId: Number(id) }
     )
     if (!avail.available) {
@@ -581,8 +582,7 @@ router.post('/requests/:id/approve', async (req, res) => {
         `Note: now over capacity on ${avail.fullNights.join(', ')}.`
     }
 
-    const today = new Date().toISOString().slice(0, 10)
-    const status = String(stay.check_in_date).slice(0, 10) <= today ? 'active' : 'upcoming'
+    const status = toDateStr(stay.check_in_date) <= todayStr() ? 'active' : 'upcoming'
     await query(
       `UPDATE stays SET status = $2::stay_status, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [id, status]

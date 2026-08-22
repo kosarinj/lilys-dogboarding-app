@@ -25,6 +25,15 @@ export default function BookingPage() {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [notes, setNotes] = useState('')
+  // Times matter to Lily even when they don't change the price — she needs to
+  // know when to expect someone at the door. Defaulted to a sensible morning
+  // drop-off and pick-up so the common case needs no fiddling.
+  const [inTime, setInTime] = useState('09:00')
+  const [outTime, setOutTime] = useState('09:00')
+  // Lily's collection / delivery service. Off by default — it costs extra, and
+  // opting in should be a choice rather than something to notice and undo.
+  const [wantDropoff, setWantDropoff] = useState(false)
+  const [wantPickup, setWantPickup] = useState(false)
   const [quote, setQuote] = useState(null)
   const [quoteError, setQuoteError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -55,6 +64,8 @@ export default function BookingPage() {
     const t = setTimeout(() => {
       axios.post(`${API}/book/${code}/quote`, {
         dog_id: Number(dogId), check_in_date: checkIn, check_out_date: checkOut,
+        check_in_time: inTime, check_out_time: outTime,
+        requires_dropoff: wantDropoff, requires_pickup: wantPickup,
       })
         .then(r => { if (!cancelledReq) { setQuote(r.data); setQuoteError(null) } })
         .catch(err => {
@@ -64,14 +75,16 @@ export default function BookingPage() {
         })
     }, 350)
     return () => { cancelledReq = true; clearTimeout(t) }
-  }, [code, dogId, checkIn, checkOut])
+  }, [code, dogId, checkIn, checkOut, inTime, outTime, wantDropoff, wantPickup])
 
   const submit = async () => {
     setBusy(true)
     setQuoteError(null)
     try {
       const r = await axios.post(`${API}/book/${code}/request`, {
-        dog_id: Number(dogId), check_in_date: checkIn, check_out_date: checkOut, notes,
+        dog_id: Number(dogId), check_in_date: checkIn, check_out_date: checkOut,
+        check_in_time: inTime, check_out_time: outTime,
+        requires_dropoff: wantDropoff, requires_pickup: wantPickup, notes,
       })
       if (r.data?.checkoutUrl) {
         window.location.href = r.data.checkoutUrl
@@ -157,6 +170,25 @@ export default function BookingPage() {
               </div>
             </div>
 
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={label}>Drop-off time</label>
+                <input type="time" value={inTime} onChange={e => setInTime(e.target.value)} style={input} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={label}>Pick-up time</label>
+                <input type="time" value={outTime} onChange={e => setOutTime(e.target.value)} style={input} />
+              </div>
+            </div>
+
+            <label style={label}>Transport</label>
+            <div style={{ marginBottom: 14 }}>
+              <Check checked={wantDropoff} onChange={setWantDropoff}
+                     label={`Drop-off service${quote?.dropoff_fee > 0 ? ` — ${money(quote.dropoff_fee)}` : ''}`} />
+              <Check checked={wantPickup} onChange={setWantPickup}
+                     label={`Pick-up service${quote?.pickup_fee > 0 ? ` — ${money(quote.pickup_fee)}` : ''}`} />
+            </div>
+
             <label style={label}>Anything she should know (optional)</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ ...input, resize: 'vertical' }} />
 
@@ -170,7 +202,12 @@ export default function BookingPage() {
             {quote && (
               <div style={{ background: '#fff5f8', border: '1px solid #ffc9d9', borderRadius: 8,
                             padding: '12px 14px', marginBottom: 14, fontSize: 14 }}>
-                <Row l={`${quote.days_count} night${quote.days_count === 1 ? '' : 's'} at ${money(quote.daily_rate)}`} r={money(quote.boarding_cost)} />
+                <Row l={`${quote.days_count} day${quote.days_count === 1 ? '' : 's'} at ${money(quote.daily_rate)}`} r={money(quote.boarding_cost)} />
+                {quote.partial_day > 0 && (
+                  <div style={{ fontSize: 12, color: '#6c7a89', margin: '-2px 0 4px' }}>
+                    includes {quote.partial_day === 1 ? 'a full extra day' : 'a half day'} — pick-up is later than drop-off
+                  </div>
+                )}
                 {quote.dropoff_fee > 0 && <Row l="Drop-off" r={money(quote.dropoff_fee)} />}
                 {quote.pickup_fee > 0 && <Row l="Pick-up" r={money(quote.pickup_fee)} />}
                 {quote.puppy_fee > 0 && <Row l="Puppy care" r={money(quote.puppy_fee)} />}
@@ -211,6 +248,15 @@ const fmt = (d) => {
   const s = String(d).slice(0, 10).split('-')
   return `${Number(s[1])}/${Number(s[2])}`
 }
+
+const Check = ({ checked, onChange, label: text }) => (
+  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
+                  fontSize: 14, color: '#2c3e50', cursor: 'pointer' }}>
+    <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
+           style={{ width: 17, height: 17, cursor: 'pointer' }} />
+    {text}
+  </label>
+)
 
 const Row = ({ l, r, bold }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontWeight: bold ? 700 : 400 }}>

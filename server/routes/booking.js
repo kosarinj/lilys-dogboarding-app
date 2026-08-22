@@ -1,8 +1,9 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { checkAvailability, getBookingRules, sizeAllowed } from '../services/availability.js'
-import { quoteStay } from '../services/pricing.js'
+import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 import { isStripeEnabled, createBookingCheckoutSession } from '../services/stripe.js'
+import { todayStr } from '../utils/dates.js'
 
 const router = express.Router()
 
@@ -126,12 +127,15 @@ router.post('/:code/request', async (req, res) => {
     const { dog_id, check_in_date, check_out_date, notes } = req.body
     const stay = await query(`
       INSERT INTO stays (
-        dog_id, check_in_date, check_out_date, stay_type, rate_type,
+        dog_id, check_in_date, check_out_date, check_in_time, check_out_time,
+        stay_type, rate_type, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee,
         days_count, daily_rate, total_cost, notes, status, requested_at, quoted_total
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'requested',CURRENT_TIMESTAMP,$10)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'requested',CURRENT_TIMESTAMP,$16)
       RETURNING id
     `, [
-      dog_id, check_in_date, check_out_date, quote.stay_type, quote.rate_type,
+      dog_id, check_in_date, check_out_date, quote.check_in_time, quote.check_out_time,
+      quote.stay_type, quote.rate_type,
+      quote.requires_dropoff, quote.requires_pickup, quote.dropoff_fee, quote.pickup_fee,
       quote.days_count, quote.daily_rate, quote.total_cost,
       notes ? String(notes).slice(0, 1000) : null, quote.total_cost,
     ])
@@ -166,7 +170,12 @@ const clientUrl = () =>
  * quote and request can't disagree about what's allowed.
  */
 async function buildQuote(customer, body) {
-  const { dog_id, check_in_date, check_out_date, stay_type = 'boarding', rate_type = 'regular' } = body || {}
+  const {
+    dog_id, check_in_date, check_out_date,
+    check_in_time, check_out_time,
+    requires_dropoff = false, requires_pickup = false,
+    stay_type = 'boarding', rate_type = 'regular',
+  } = body || {}
 
   if (!dog_id) return { error: 'Choose a dog' }
   if (!DATE_RE.test(check_in_date || '') || !DATE_RE.test(check_out_date || '')) {
@@ -175,10 +184,10 @@ async function buildQuote(customer, body) {
   if (check_out_date <= check_in_date) {
     return { error: 'Check-out must be after check-in' }
   }
-  // Dates are compared as strings, which is safe for YYYY-MM-DD and avoids the
-  // timezone traps that come with parsing a bare date into a Date.
-  const today = new Date().toISOString().slice(0, 10)
-  if (check_in_date < today) return { error: 'That date has already passed' }
+  // Compared as strings, which is safe for YYYY-MM-DD. "Today" comes from local
+  // components rather than toISOString — in a timezone ahead of UTC the latter
+  // gives yesterday, and would refuse a booking for this morning.
+  if (check_in_date < todayStr()) return { error: 'That date has already passed' }
 
   // The dog must belong to THIS customer — the code identifies a person, and
   // without this check anyone with a link could book against someone else's dog.
@@ -204,9 +213,20 @@ async function buildQuote(customer, body) {
     }
   }
 
-  const days_count = avail.nights.length
-  const priced = await quoteStay({ dog_id, days_count, stay_type, rate_type })
-  return { ...priced, dog_name: dog.name, stay_type, rate_type, check_in_date, check_out_date }
+  // Nights, plus a part-day when pick-up is later in the day than drop-off —
+  // the same rule she charges by, so the quote can't undercut the real price.
+  const partial_day = getPartialDayAddition(check_in_time, check_out_time)
+  const days_count = avail.nights.length + partial_day
+  const priced = await quoteStay({
+    dog_id, days_count, stay_type, rate_type,
+    requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,
+  })
+  return {
+    ...priced, dog_name: dog.name, stay_type, rate_type,
+    check_in_date, check_out_date, check_in_time: check_in_time || null,
+    check_out_time: check_out_time || null, partial_day,
+    requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,
+  }
 }
 
 export default router

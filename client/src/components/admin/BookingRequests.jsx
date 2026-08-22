@@ -9,6 +9,16 @@ import api from '../../utils/api'
  * ordinary stay; declining releases the hold so the customer pays nothing.
  */
 const money = (n) => `$${Number(n || 0).toFixed(2)}`
+// "14:30:00" -> "2:30pm". Times come back from Postgres with seconds, and the
+// seconds are noise on a door-knock time.
+const hhmm = (t) => {
+  const [h, m] = String(t).split(':').map(Number)
+  if (!Number.isFinite(h)) return ''
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m ? `${h12}:${String(m).padStart(2, '0')}${ampm}` : `${h12}${ampm}`
+}
+
 const fmt = (d) => {
   const [y, m, day] = String(d).slice(0, 10).split('-')
   return `${Number(m)}/${Number(day)}/${String(y).slice(2)}`
@@ -90,8 +100,17 @@ export default function BookingRequests() {
                   {row.dog_name} <span style={{ color: '#6c7a89', fontWeight: 400 }}>· {row.customer_name}</span>
                 </div>
                 <div style={{ fontSize: 14, color: '#2c3e50', marginTop: 2 }}>
-                  {fmt(row.check_in_date)} – {fmt(row.check_out_date)} · {row.days_count} night{row.days_count === 1 ? '' : 's'}
+                  {fmt(row.check_in_date)}{row.check_in_time ? ` ${hhmm(row.check_in_time)}` : ''}
+                  {' – '}
+                  {fmt(row.check_out_date)}{row.check_out_time ? ` ${hhmm(row.check_out_time)}` : ''}
+                  {' · '}{row.days_count} day{Number(row.days_count) === 1 ? '' : 's'}
                 </div>
+                {(row.requires_dropoff || row.requires_pickup) && (
+                  <div style={{ fontSize: 13, color: '#8e44ad', marginTop: 2, fontWeight: 600 }}>
+                    🚗 {[row.requires_dropoff && 'drop-off', row.requires_pickup && 'pick-up']
+                          .filter(Boolean).join(' + ')} requested
+                  </div>
+                )}
                 <div style={{ fontSize: 13, color: '#6c7a89', marginTop: 2 }}>
                   {row.customer_phone || 'no phone'}{row.dog_size ? ` · ${row.dog_size}` : ''}
                 </div>
