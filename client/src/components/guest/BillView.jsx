@@ -5,6 +5,12 @@ function BillView({ billCode }) {
   const [bill, setBill] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Card payment is optional. Until the server says it's configured there is no
+  // button at all, so the bill looks exactly as it always has.
+  const [cardEnabled, setCardEnabled] = useState(false)
+  const [cardTestMode, setCardTestMode] = useState(false)
+  const [payLoading, setPayLoading] = useState(false)
+  const [payError, setPayError] = useState(null)
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -24,6 +30,36 @@ function BillView({ billCode }) {
       setLoading(false)
     }
   }
+
+  // Whether cards are available at all. A failure here just means no button —
+  // never a broken bill, since Venmo, Zelle and cash still work.
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/payments/config`)
+      .then(r => { setCardEnabled(!!r.data?.enabled); setCardTestMode(!!r.data?.testMode) })
+      .catch(() => setCardEnabled(false))
+  }, [])
+
+  const payByCard = async () => {
+    setPayLoading(true)
+    setPayError(null)
+    try {
+      const r = await axios.post(`${API_BASE_URL}/payments/bills/${billCode}/checkout`)
+      if (r.data?.url) {
+        // Stripe's own hosted page — card details never reach this app.
+        window.location.href = r.data.url
+      } else {
+        setPayError('Could not start the payment. Please try again.')
+        setPayLoading(false)
+      }
+    } catch (err) {
+      setPayError(err.response?.data?.error || 'Could not start the payment. Please try again.')
+      setPayLoading(false)
+    }
+  }
+
+  const amountDue = bill
+    ? Number(bill.total_amount || 0) - Number(bill.paid_amount || 0)
+    : 0
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
@@ -448,6 +484,37 @@ function BillView({ billCode }) {
           <div style={{ fontSize: '13px', color: '#2c3e50', marginBottom: '12px', fontStyle: 'italic' }}>
             All services are paid in advance
           </div>
+          {/* Card is an extra option, deliberately above the others but not
+              replacing them — plenty of people would rather use Venmo, and the
+              app works unchanged when cards are switched off. */}
+          {cardEnabled && amountDue > 0 && bill.status !== 'cancelled' && (
+            <div style={{ marginBottom: '16px' }}>
+              <button
+                onClick={payByCard}
+                disabled={payLoading}
+                style={{
+                  width: '100%', padding: '14px 20px', fontSize: '16px', fontWeight: 700,
+                  color: '#fff', background: payLoading ? '#9bb0c4' : '#e8547c',
+                  border: 'none', borderRadius: '8px',
+                  cursor: payLoading ? 'default' : 'pointer',
+                }}
+              >
+                {payLoading ? 'Opening secure checkout…' : `Pay $${amountDue.toFixed(2)} by card`}
+              </button>
+              <div style={{ fontSize: '12px', color: '#6c7a89', marginTop: '6px', textAlign: 'center' }}>
+                Secure checkout by Stripe · card details are never stored here
+                {cardTestMode && <strong style={{ color: '#b8860b' }}> · TEST MODE — no real money</strong>}
+              </div>
+              {payError && (
+                <div style={{ fontSize: '13px', color: '#c0392b', marginTop: '8px', textAlign: 'center' }}>
+                  {payError}
+                </div>
+              )}
+              <div style={{ fontSize: '13px', color: '#6c7a89', marginTop: '14px', textAlign: 'center' }}>
+                — or pay directly —
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
             <div><strong>Cash:</strong> Accepted</div>
             <div><strong>Venmo:</strong> @lilykos</div>

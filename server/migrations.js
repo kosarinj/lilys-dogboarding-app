@@ -256,6 +256,13 @@ export async function runMigrations() {
     // entered herself, and declines keep a reason rather than vanishing.
     await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS requested_at TIMESTAMP`)
     await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS decline_reason TEXT`)
+    // Payment held against a request. The card is authorized when the request is
+    // made and only captured when she approves, so the money is committed
+    // without being taken from someone whose dates might be declined.
+    // payment_state: null (no card) | authorized | captured | released | expired
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS payment_intent_id VARCHAR(255)`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS payment_state VARCHAR(20)`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS quoted_total DECIMAL(10,2)`)
 
     // Backfill codes for existing customers. Done in JS rather than SQL so the
     // alphabet matches the bill codes she already reads out over the phone.
