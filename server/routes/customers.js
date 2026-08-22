@@ -1,5 +1,6 @@
 import express from 'express'
 import { query } from '../models/db.js'
+import { generateBookingCode } from '../utils/bookingCode.js'
 
 const router = express.Router()
 
@@ -31,9 +32,11 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, phone, email } = req.body
+    // Issue a booking code up front so every customer has a link to hand out —
+    // backfilling only on first use would mean she couldn't send it until then.
     const result = await query(
-      'INSERT INTO customers (name, phone, email) VALUES ($1, $2, $3) RETURNING *',
-      [name, phone, email]
+      'INSERT INTO customers (name, phone, email, booking_code) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, phone, email, generateBookingCode()]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {

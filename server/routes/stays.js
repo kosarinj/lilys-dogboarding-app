@@ -1,5 +1,7 @@
 import express from 'express'
 import { query } from '../models/db.js'
+import { checkAvailability } from '../services/availability.js'
+import { capturePaymentIntent, cancelPaymentIntent } from '../services/stripe.js'
 
 const router = express.Router()
 
@@ -432,6 +434,109 @@ router.post('/migrate', async (req, res) => {
   } catch (error) {
     console.error('Migration error:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+// ─── Booking requests ────────────────────────────────────────────────────────
+// A request is a stay with status 'requested'. Approving it makes it an ordinary
+// upcoming stay, so bills, the calendar and analytics need no changes.
+
+// Everything waiting on her, oldest first — this is a queue, so the person who
+// asked first should be dealt with first.
+router.get('/requests/pending', async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT s.*, d.name AS dog_name, d.size AS dog_size, d.photo_url AS dog_photo_url,
+             c.id AS customer_id, c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email
+      FROM stays s
+      JOIN dogs d ON s.dog_id = d.id
+      JOIN customers c ON d.customer_id = c.id
+      WHERE s.status = 'requested'
+      ORDER BY s.requested_at ASC NULLS LAST, s.id ASC
+    `)
+    res.json(r.rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Approve: take the held money, then confirm. In that order deliberately — if
+// the capture fails (an authorization older than about 7 days has expired), the
+// stay stays a request rather than becoming a confirmed booking nobody paid for.
+router.post('/requests/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params
+    const r = await query(`SELECT * FROM stays WHERE id = $1 AND status = 'requested'`, [id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Request not found' })
+    const stay = r.rows[0]
+
+    let paymentNote = null
+    if (stay.payment_intent_id && stay.payment_state === 'authorized') {
+      try {
+        await capturePaymentIntent(stay.payment_intent_id)
+        await query(`UPDATE stays SET payment_state = 'captured' WHERE id = $1`, [id])
+        paymentNote = 'Card charged.'
+      } catch (e) {
+        await query(`UPDATE stays SET payment_state = 'expired' WHERE id = $1`, [id])
+        return res.status(402).json({
+          error: `Could not take the payment: ${e.message}. The hold may have expired — ask them to pay again.`,
+        })
+      }
+    }
+
+    // Re-check capacity at the moment of approval. Requests are counted as
+    // occupying space, but she can also add stays by hand, so the picture may
+    // have changed since the request came in.
+    const avail = await checkAvailability(
+      String(stay.check_in_date).slice(0, 10),
+      String(stay.check_out_date).slice(0, 10),
+      { excludeStayId: Number(id) }
+    )
+    if (!avail.available) {
+      paymentNote = (paymentNote ? paymentNote + ' ' : '') +
+        `Note: now over capacity on ${avail.fullNights.join(', ')}.`
+    }
+
+    const today = new Date().toISOString().slice(0, 10)
+    const status = String(stay.check_in_date).slice(0, 10) <= today ? 'active' : 'upcoming'
+    await query(
+      `UPDATE stays SET status = $2::stay_status, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id, status]
+    )
+    res.json({ success: true, status, note: paymentNote })
+  } catch (e) {
+    console.error('Approve error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Decline: release the hold so they're never out of pocket, and keep the reason.
+router.post('/requests/:id/decline', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body || {}
+    const r = await query(`SELECT * FROM stays WHERE id = $1 AND status = 'requested'`, [id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Request not found' })
+    const stay = r.rows[0]
+
+    if (stay.payment_intent_id && stay.payment_state === 'authorized') {
+      try {
+        await cancelPaymentIntent(stay.payment_intent_id)
+        await query(`UPDATE stays SET payment_state = 'released' WHERE id = $1`, [id])
+      } catch (e) {
+        // Don't block the decline on this. An uncancelled authorization expires
+        // by itself; refusing to decline would leave the dates blocked.
+        console.error('Could not release hold:', e.message)
+      }
+    }
+
+    await query(`
+      UPDATE stays SET status = 'cancelled', decline_reason = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [id, reason ? String(reason).slice(0, 500) : null])
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
   }
 })
 
