@@ -2,6 +2,9 @@ import express from 'express'
 import { query } from '../models/db.js'
 import { checkAvailability } from '../services/availability.js'
 import { capturePaymentIntent, cancelPaymentIntent } from '../services/stripe.js'
+// Same generator as the booking codes: one alphabet, chosen so codes read
+// cleanly over the phone.
+import { generateBookingCode } from '../utils/bookingCode.js'
 
 const router = express.Router()
 
@@ -436,6 +439,87 @@ router.post('/migrate', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
+/**
+ * POST /api/stays/:id/payment-link
+ *
+ * She books the stay herself and sends the customer a link to pay — the other
+ * direction from self-booking, for the people who'd rather she just sorted it
+ * out. Saves them the whole booking flow while still getting paid up front.
+ *
+ * Deliberately reuses bills rather than inventing a second way to owe money:
+ * the guest bill page, the card button, the payment record and the paid/unpaid
+ * accounting all already exist and are already proven. This is a shortcut
+ * through them, not a parallel path.
+ *
+ * Idempotent — if the stay is already on a bill, it hands back that bill's link
+ * instead of raising a second one for the same nights.
+ */
+router.post('/:id/payment-link', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const existing = await query(`
+      SELECT b.bill_code FROM bill_items bi JOIN bills b ON bi.bill_id = b.id
+      WHERE bi.stay_id = $1 AND b.status <> 'cancelled' LIMIT 1
+    `, [id])
+    if (existing.rows.length > 0) {
+      return res.json({ billCode: existing.rows[0].bill_code, link: billLink(existing.rows[0].bill_code), reused: true })
+    }
+
+    const stayResult = await query(`
+      SELECT s.*, d.name AS dog_name, d.customer_id, c.name AS customer_name
+      FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
+      WHERE s.id = $1
+    `, [id])
+    if (stayResult.rows.length === 0) return res.status(404).json({ error: 'Stay not found' })
+    const stay = stayResult.rows[0]
+
+    if (stay.status === 'requested') {
+      return res.status(400).json({ error: 'Approve this request first, then send a payment link.' })
+    }
+
+    const total = Number(stay.special_price != null ? stay.special_price : stay.total_cost)
+
+    let code = generateBookingCode()
+    for (let i = 0; i < 5; i++) {
+      const clash = await query('SELECT id FROM bills WHERE bill_code = $1', [code])
+      if (clash.rows.length === 0) break
+      code = generateBookingCode()
+    }
+
+    const bill = await query(`
+      INSERT INTO bills (customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, paid_amount, status, notes)
+      VALUES ($1, $2, CURRENT_DATE, $3, $4, 0, $4, 0, 'sent', $5)
+      RETURNING id, bill_code
+    `, [
+      stay.customer_id, code,
+      String(stay.check_in_date).slice(0, 10),   // due before the stay starts — the point is paying up front
+      total,
+      `Advance payment for ${stay.dog_name}`,
+    ])
+
+    await query(`
+      INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      bill.rows[0].id, stay.id,
+      `${stay.dog_name} — ${String(stay.check_in_date).slice(0, 10)} to ${String(stay.check_out_date).slice(0, 10)}`,
+      Math.max(1, Math.ceil(Number(stay.days_count) || 1)),
+      Number(stay.daily_rate) || total,
+      total,
+    ])
+
+    res.json({ billCode: bill.rows[0].bill_code, link: billLink(bill.rows[0].bill_code), reused: false })
+  } catch (e) {
+    console.error('Payment link error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+const billLink = (code) =>
+  `${process.env.CLIENT_URL || process.env.PUBLIC_URL || 'http://localhost:5173'}/bill/${code}`
+
 
 // ─── Booking requests ────────────────────────────────────────────────────────
 // A request is a stay with status 'requested'. Approving it makes it an ordinary
