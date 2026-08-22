@@ -4,6 +4,7 @@ import './admin.css'
 
 function CustomersManager() {
   const [customers, setCustomers] = useState([])
+  const [copiedId, setCopiedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -45,6 +46,21 @@ function CustomersManager() {
       setError('Failed to save customer. Please try again.')
       console.error(err)
     }
+  }
+
+  // Built from the current origin so it's right in dev and in production
+  // without another env var to keep in step.
+  const copyBookingLink = async (customer) => {
+    const link = `${window.location.origin}/book/${customer.booking_code}`
+    try {
+      await navigator.clipboard.writeText(link)
+    } catch {
+      // Clipboard needs HTTPS and permission; falling back to a prompt means
+      // she can still get the link by hand rather than hitting a dead end.
+      window.prompt('Copy this booking link:', link)
+    }
+    setCopiedId(customer.id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   const handleEdit = (customer) => {
@@ -154,13 +170,14 @@ function CustomersManager() {
               <th>Name</th>
               <th>Phone</th>
               <th>Email</th>
+              <th>Booking link</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {customers.length === 0 ? (
               <tr>
-                <td colSpan="4">
+                <td colSpan="5">
                   <div className="empty-state">
                     <div className="empty-state-icon">👥</div>
                     <div className="empty-state-text">No customers yet</div>
@@ -179,6 +196,23 @@ function CustomersManager() {
                   <td><strong>{customer.name}</strong></td>
                   <td>{customer.phone || '-'}</td>
                   <td>{customer.email || '-'}</td>
+                  {/* The link IS the customer's way in — there is no login — so
+                      it has to be somewhere she can grab it. Copy rather than
+                      display: it's long, and reading it out would be miserable. */}
+                  <td>
+                    {customer.booking_code ? (
+                      <button
+                        onClick={() => copyBookingLink(customer)}
+                        className="btn btn-edit"
+                        title="Copy this customer's personal booking link, then text it to them"
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        {copiedId === customer.id ? '✓ Copied' : '🔗 Copy link'}
+                      </button>
+                    ) : (
+                      <span style={{ color: '#95a5a6', fontSize: 12 }}>—</span>
+                    )}
+                  </td>
                   <td>
                     <button onClick={() => handleEdit(customer)} className="btn btn-edit">
                       Edit
