@@ -1,4 +1,5 @@
 import { query } from './models/db.js'
+import { generateBookingCode } from './utils/bookingCode.js'
 
 export async function runMigrations() {
   console.log('Running database migrations...')
@@ -232,6 +233,57 @@ export async function runMigrations() {
     `)
     await query(`CREATE TABLE IF NOT EXISTS app_config (key VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)`)
     console.log('✓ Auth tables (admin_users, app_config) ready')
+
+    // ── Customer self-booking ────────────────────────────────────────────
+    // Each customer gets a permanent booking code, the same shape as bill_code.
+    // The link is handed out by Lily, which is what keeps this to people she
+    // already boards for — there is no signup, so a stranger has no way in.
+    await query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS booking_code VARCHAR(12) UNIQUE`)
+
+    // A request is a stay that hasn't been agreed to yet. Making it a status
+    // rather than a separate table means an approved request becomes an
+    // ordinary stay with no copying — everything downstream (bills, calendar,
+    // analytics) already understands stays.
+    // Deliberately NOT wrapped in a DO block: ALTER TYPE ... ADD VALUE can't run
+    // inside a transaction on older Postgres, and a DO block is one. Run bare and
+    // swallow the duplicate here instead.
+    try {
+      await query(`ALTER TYPE stay_status ADD VALUE IF NOT EXISTS 'requested'`)
+    } catch (e) {
+      if (!/already exists|duplicate/i.test(e.message)) console.error('stay_status enum:', e.message)
+    }
+    // Who asked, and when — so a request can be shown apart from a stay Lily
+    // entered herself, and declines keep a reason rather than vanishing.
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS requested_at TIMESTAMP`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS decline_reason TEXT`)
+
+    // Backfill codes for existing customers. Done in JS rather than SQL so the
+    // alphabet matches the bill codes she already reads out over the phone.
+    const missing = await query(`SELECT id FROM customers WHERE booking_code IS NULL`)
+    for (const row of missing.rows) {
+      // Retry on the vanishingly unlikely collision rather than failing the boot.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const code = generateBookingCode()
+        try {
+          await query(`UPDATE customers SET booking_code = $1 WHERE id = $2`, [code, row.id])
+          break
+        } catch (e) { if (attempt === 4) console.error('booking code failed for customer', row.id) }
+      }
+    }
+    if (missing.rows.length) console.log(`✓ Booking codes issued to ${missing.rows.length} customer(s)`)
+
+    // Capacity. Stored in the same settings table as the fees, so she can change
+    // it without a deploy. max_dogs_per_night is what stops self-booking from
+    // overbooking her; max_dog_size is an index into ('small','medium','large')
+    // — 2 means large dogs can't be requested, which is her rule today.
+    await query(`
+      INSERT INTO settings (setting_key, setting_value, description)
+      VALUES
+        ('max_dogs_per_night', 3, 'How many dogs can be boarded on the same night'),
+        ('max_dog_size', 2, 'Largest dog size that can be requested online: 1 small, 2 medium, 3 large')
+      ON CONFLICT (setting_key) DO NOTHING
+    `)
+    console.log('✓ Booking settings ready')
 
     console.log('✓ All migrations completed successfully')
   } catch (error) {
