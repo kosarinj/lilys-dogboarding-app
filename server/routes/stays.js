@@ -683,6 +683,12 @@ router.post('/requests/:id/approve', async (req, res) => {
     `, [id])
     const row = full.rows[0]
     const sms = await sendSms(row?.customer_phone, confirmationText(row))
+    if (sms.sent) {
+      await query(
+        `UPDATE stays SET notified_at = CURRENT_TIMESTAMP, notified_via = 'sms' WHERE id = $1`,
+        [id]
+      )
+    }
 
     res.json({ success: true, status, payment_state: payState, note: paymentNote, sms })
   } catch (e) {
@@ -791,6 +797,38 @@ router.post('/requests/:id/undo', async (req, res) => {
     res.json({ success: true, moneyNote })
   } catch (e) {
     console.error('Undo error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * POST /api/stays/requests/:id/notified — record that the customer was told.
+ *
+ * Set automatically when a text sends, and by the Copy button too, since
+ * copying the message is only ever done in order to send it. Without this a
+ * manually sent confirmation leaves no trace at all: an approval passed on
+ * looks identical to one that's been sitting unmentioned for two days, which
+ * is the thing that made the workflow feel like it disappeared.
+ *
+ * Undoable, because a copy isn't proof — she might copy and get distracted.
+ */
+router.post('/requests/:id/notified', async (req, res) => {
+  try {
+    const { via, clear } = req.body || {}
+    if (clear) {
+      await query(
+        `UPDATE stays SET notified_at = NULL, notified_via = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [req.params.id]
+      )
+      return res.json({ success: true, notified_at: null })
+    }
+    const r = await query(
+      `UPDATE stays SET notified_at = CURRENT_TIMESTAMP, notified_via = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 RETURNING notified_at`,
+      [req.params.id, via || 'manual']
+    )
+    res.json({ success: true, notified_at: r.rows[0]?.notified_at || null })
+  } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })

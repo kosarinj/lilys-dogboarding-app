@@ -266,6 +266,11 @@ export async function runMigrations() {
     // How a stay was actually settled. bills has this already; stays didn't, and
     // a Venmo marked paid against a stay had nowhere to record that it was Venmo.
     await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)`)
+    // When the customer was actually told, and how. Without this a manually
+    // sent text leaves no trace, so there's no way to tell an approval that was
+    // passed on from one that's been sitting unmentioned for two days.
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS notified_at TIMESTAMP`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS notified_via VARCHAR(20)`)
 
     // Backfill codes for existing customers. Done in JS rather than SQL so the
     // alphabet matches the bill codes she already reads out over the phone.

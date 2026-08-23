@@ -19,6 +19,21 @@ const hhmm = (t) => {
   return m ? `${h12}:${String(m).padStart(2, '0')}${ampm}` : `${h12}${ampm}`
 }
 
+// "2h ago" beats a timestamp here — the question is whether it was recent
+// enough that the customer has probably seen it.
+const when = (ts) => {
+  if (!ts) return ''
+  const then = new Date(ts).getTime()
+  if (Number.isNaN(then)) return ''
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000))
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.round(hrs / 24)
+  return days === 1 ? 'yesterday' : `${days}d ago`
+}
+
 const fmt = (d) => {
   const [y, m, day] = String(d).slice(0, 10).split('-')
   return `${Number(m)}/${Number(day)}/${String(y).slice(2)}`
@@ -125,11 +140,24 @@ export default function BookingRequests() {
     `Total is $${Number(row.total_cost || 0).toFixed(2)}. ` +
     `Venmo @lilykos or Zelle lilykos@me.com whenever suits. Thank you!`
 
+  // Copying is only ever done in order to send, so it records that the customer
+  // was told. Undoable from the row, since a copy isn't proof she actually sent.
   const copyMessage = async (row) => {
     const text = confirmMessage(row)
     try { await navigator.clipboard.writeText(text) }
     catch { window.prompt('Copy this message:', text) }
-    setNote({ tone: 'ok', text: 'Message copied — paste it into a text.' })
+    try { await api.post(`/stays/requests/${row.id}/notified`, { via: 'manual' }) } catch { /* copy still worked */ }
+    setNote({ tone: 'ok', text: 'Message copied — paste it into a text. Marked as told.' })
+    load()
+  }
+
+  const clearNotified = async (row) => {
+    try {
+      await api.post(`/stays/requests/${row.id}/notified`, { clear: true })
+      await load()
+    } catch (e) {
+      setNote({ tone: 'bad', text: 'Could not undo' })
+    }
   }
 
   const markPaid = async (row, method) => {
@@ -230,6 +258,22 @@ export default function BookingRequests() {
                     <span style={{ marginLeft: 8, color: '#6c7a89' }}>
                       ${Number(row.total_cost || 0).toFixed(2)}
                     </span>
+                  )}
+                  {row.status !== 'cancelled' && (
+                    <div style={{ fontSize: 11.5, marginTop: 3 }}>
+                      {row.notified_at ? (
+                        <span style={{ color: '#27ae60' }}>
+                          ✓ told {when(row.notified_at)}{row.notified_via === 'sms' ? ' by text' : ''}
+                          <button onClick={() => clearNotified(row)}
+                            style={{ marginLeft: 6, border: 'none', background: 'transparent',
+                                     color: '#95a5a6', cursor: 'pointer', textDecoration: 'underline', fontSize: 11 }}>
+                            undo
+                          </button>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#e67e22', fontWeight: 600 }}>⚠ customer not told yet</span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
