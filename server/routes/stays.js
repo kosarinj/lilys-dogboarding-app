@@ -7,6 +7,7 @@ import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 // cleanly over the phone.
 import { generateBookingCode } from '../utils/bookingCode.js'
 import { toDateStr, todayStr } from '../utils/dates.js'
+import { sendSms, isSmsEnabled } from '../services/sms.js'
 
 const router = express.Router()
 
@@ -671,12 +672,50 @@ router.post('/requests/:id/approve', async (req, res) => {
        WHERE id = $1`,
       [id, status, payState]
     )
-    res.json({ success: true, status, payment_state: payState, note: paymentNote })
+    // Tell the customer. Deliberately after the approval has been recorded, and
+    // deliberately not awaited into the success of it — a booking that is
+    // confirmed in the database must stay confirmed even if the text bounces.
+    // The result comes back so she knows whether to send it by hand.
+    const full = await query(`
+      SELECT s.*, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
+      WHERE s.id = $1
+    `, [id])
+    const row = full.rows[0]
+    const sms = await sendSms(row?.customer_phone, confirmationText(row))
+
+    res.json({ success: true, status, payment_state: payState, note: paymentNote, sms })
   } catch (e) {
     console.error('Approve error:', e.message)
     res.status(500).json({ error: e.message })
   }
 })
+
+/**
+ * The confirmation wording, in one place.
+ *
+ * The same text goes out by SMS and sits behind the copy button, so they can't
+ * drift into saying different things about the same booking.
+ */
+function confirmationText({ customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, total_cost }) {
+  const t = (v) => {
+    if (!v) return ''
+    const [h, m] = String(v).split(':').map(Number)
+    if (!Number.isFinite(h)) return ''
+    const ap = h >= 12 ? 'pm' : 'am'
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return m ? ` at ${h12}:${String(m).padStart(2, '0')}${ap}` : ` at ${h12}${ap}`
+  }
+  const d = (v) => {
+    const [y, mo, dd] = toDateStr(v).split('-')
+    return `${Number(mo)}/${Number(dd)}`
+  }
+  const first = String(customer_name || '').split(' ')[0]
+  return `Hi ${first}, you're all set — ${dog_name} is booked in for ` +
+    `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}. ` +
+    `Total $${Number(total_cost || 0).toFixed(2)}. ` +
+    `Venmo @lilykos or Zelle lilykos@me.com whenever suits. Thank you! — Lily's Dog Boarding`
+}
 
 /**
  * GET /api/stays/requests/recent — requests she's already acted on.
@@ -775,7 +814,21 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
       UPDATE stays SET payment_state = 'paid', payment_method = $2, updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
     `, [id, method || null])
-    res.json({ success: true })
+
+    const full = await query(`
+      SELECT s.total_cost, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
+      WHERE s.id = $1
+    `, [id])
+    const row = full.rows[0]
+    const sms = row ? await sendSms(
+      row.customer_phone,
+      `Thanks ${String(row.customer_name || '').split(' ')[0]}! Payment of ` +
+      `$${Number(row.total_cost || 0).toFixed(2)} received for ${row.dog_name}. ` +
+      `You're all confirmed. — Lily's Dog Boarding`
+    ) : { sent: false, reason: 'Stay not found' }
+
+    res.json({ success: true, sms })
   } catch (e) {
     console.error('Mark paid error:', e.message)
     res.status(500).json({ error: e.message })

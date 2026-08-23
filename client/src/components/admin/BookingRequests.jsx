@@ -87,11 +87,14 @@ export default function BookingRequests() {
       const r = await api.post(`/stays/requests/${row.id}/approve`)
       // Approving told nobody. The customer's page does say "Confirmed", but
       // only if they think to look — so hand her the message ready to send.
-      setNote({
-        tone: 'ok',
-        text: `Approved ${row.dog_name} — awaiting payment. ${r.data?.note || ''}`.trim(),
-        msgFor: row,
-      })
+      // Say plainly whether the text went. A silent failure here means the
+      // customer never hears, and she'd have no reason to check.
+      const sms = r.data?.sms
+      setNote(sms?.sent
+        ? { tone: 'ok', text: `Approved ${row.dog_name} — awaiting payment. Texted ${sms.to}. ${r.data?.note || ''}`.trim() }
+        : { tone: 'bad',
+            text: `Approved ${row.dog_name} — awaiting payment, but the text didn't send (${sms?.reason || 'unknown'}). ${r.data?.note || ''}`.trim(),
+            msgFor: row })
       await load()
     } catch (e) {
       // A failed capture leaves it a request on purpose, so it can be chased
@@ -132,8 +135,13 @@ export default function BookingRequests() {
   const markPaid = async (row, method) => {
     setBusyId(row.id)
     try {
-      await api.post(`/stays/requests/${row.id}/mark-paid`, { method })
-      setNote({ tone: 'ok', text: `${row.dog_name} marked paid — now confirmed.` })
+      const r = await api.post(`/stays/requests/${row.id}/mark-paid`, { method })
+      const sms = r.data?.sms
+      setNote({
+        tone: 'ok',
+        text: `${row.dog_name} marked paid — now confirmed.` +
+          (sms?.sent ? ' Receipt texted.' : ` (No receipt text: ${sms?.reason || 'texting off'}.)`),
+      })
       await load()
     } catch (e) {
       setNote({ tone: 'bad', text: e.response?.data?.error || 'Could not mark paid' })
