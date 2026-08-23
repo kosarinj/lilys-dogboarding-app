@@ -1,6 +1,7 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
+import { sendSms, isSmsEnabled, toE164 } from '../services/sms.js'
 
 const router = express.Router()
 
@@ -102,6 +103,47 @@ router.post('/initialize', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error initializing settings:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+/**
+ * GET /api/settings/sms/status — is texting actually configured?
+ *
+ * Reports which pieces are present without ever returning the auth token.
+ * "Nothing arrived" has several possible causes and they need different fixes;
+ * this separates "not configured" from "configured but the send failed".
+ */
+router.get('/sms/status', requireAuth, (req, res) => {
+  const from = process.env.TWILIO_PHONE_NUMBER || null
+  res.json({
+    enabled: isSmsEnabled(),
+    accountSid: process.env.TWILIO_ACCOUNT_SID
+      ? `${String(process.env.TWILIO_ACCOUNT_SID).slice(0, 6)}…` : null,
+    authTokenSet: !!process.env.TWILIO_AUTH_TOKEN,
+    fromNumber: from,
+    // Twilio rejects anything not in E.164, and a from-number typed as
+    // 855-801-9854 fails every send with an error that doesn't mention it.
+    fromLooksValid: !!from && /^\+\d{10,15}$/.test(from),
+  })
+})
+
+/**
+ * POST /api/settings/sms/test — send one text and report exactly what happened.
+ *
+ * Takes Twilio out of the booking flow so a failure can be attributed. Returns
+ * Twilio's own error verbatim, because "unverified", "not a mobile number" and
+ * "blocked as spam" each need a different response and a generic failure
+ * message hides which one it was.
+ */
+router.post('/sms/test', requireAuth, async (req, res) => {
+  try {
+    const { phone } = req.body || {}
+    if (!phone) return res.status(400).json({ error: 'phone is required' })
+    const normalized = toE164(phone)
+    const result = await sendSms(phone, "Test from Lily's Dog Boarding — if you got this, texting works.")
+    res.json({ input: phone, normalized, ...result })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
   }
 })
 
