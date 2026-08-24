@@ -1,7 +1,7 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
-import { sendSms, isSmsEnabled, toE164 } from '../services/sms.js'
+import { sendSms, isSmsEnabled, toE164, activeProvider } from '../services/sms.js'
 
 const router = express.Router()
 
@@ -114,16 +114,26 @@ router.post('/initialize', requireAuth, async (req, res) => {
  * this separates "not configured" from "configured but the send failed".
  */
 router.get('/sms/status', requireAuth, (req, res) => {
-  const from = process.env.TWILIO_PHONE_NUMBER || null
+  const provider = activeProvider()
+  const twilioFrom = process.env.TWILIO_PHONE_NUMBER || null
+  const vFrom = process.env.VONAGE_FROM_NUMBER || process.env.VONAGE_PHONE_NUMBER || null
   res.json({
     enabled: isSmsEnabled(),
-    accountSid: process.env.TWILIO_ACCOUNT_SID
-      ? `${String(process.env.TWILIO_ACCOUNT_SID).slice(0, 6)}…` : null,
-    authTokenSet: !!process.env.TWILIO_AUTH_TOKEN,
-    fromNumber: from,
-    // Twilio rejects anything not in E.164, and a from-number typed as
-    // 855-801-9854 fails every send with an error that doesn't mention it.
-    fromLooksValid: !!from && /^\+\d{10,15}$/.test(from),
+    provider,                      // which one would actually be used
+    vonage: {
+      apiKeySet: !!process.env.VONAGE_API_KEY,
+      apiSecretSet: !!process.env.VONAGE_API_SECRET,
+      fromNumber: vFrom,
+    },
+    twilio: {
+      accountSid: process.env.TWILIO_ACCOUNT_SID
+        ? String(process.env.TWILIO_ACCOUNT_SID).slice(0, 6) + '...' : null,
+      authTokenSet: !!process.env.TWILIO_AUTH_TOKEN,
+      fromNumber: twilioFrom,
+      // Twilio rejects anything not in E.164, and a from-number typed as
+      // 855-801-9854 fails every send with an error that never mentions format.
+      fromLooksValid: !!twilioFrom && /^[+]\d{10,15}$/.test(twilioFrom),
+    },
   })
 })
 
