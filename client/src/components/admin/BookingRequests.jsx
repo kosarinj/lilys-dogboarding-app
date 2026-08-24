@@ -48,6 +48,8 @@ export default function BookingRequests() {
   const [editId, setEditId] = useState(null)
   const [draft, setDraft] = useState({})
   const [recent, setRecent] = useState([])
+  const [smsStatus, setSmsStatus] = useState(null)
+  const [testing, setTesting] = useState(false)
 
   const load = async () => {
     try {
@@ -66,6 +68,28 @@ export default function BookingRequests() {
     }
   }
   useEffect(() => { load() }, [])
+
+  // Whether texting is configured at all, and which provider would be used.
+  // Shown because "did that text send?" is otherwise unanswerable from here.
+  useEffect(() => {
+    api.get('/settings/sms/status')
+      .then(r => setSmsStatus(r.data))
+      .catch(() => setSmsStatus({ enabled: false }))
+  }, [])
+
+  const testText = async () => {
+    const phone = window.prompt('Send a test text to which number?')
+    if (!phone) return
+    setTesting(true)
+    try {
+      const r = await api.post('/settings/sms/test', { phone })
+      setNote(r.data?.sent
+        ? { tone: 'ok', text: `Test text sent to ${r.data.normalized} via ${r.data.provider}.` }
+        : { tone: 'bad', text: `Test failed: ${r.data?.reason || 'unknown'} (number read as ${r.data?.normalized || 'unreadable'})` })
+    } catch (e) {
+      setNote({ tone: 'bad', text: e.response?.data?.error || 'Test failed' })
+    } finally { setTesting(false) }
+  }
 
   const startEdit = (row) => {
     setEditId(row.id)
@@ -207,9 +231,26 @@ export default function BookingRequests() {
   return (
     <div style={{ padding: '4px 0' }}>
       <h1 style={{ fontSize: 22, margin: '0 0 4px' }}>Booking requests</h1>
-      <p style={{ color: '#6c7a89', fontSize: 13, margin: '0 0 16px' }}>
+      <p style={{ color: '#6c7a89', fontSize: 13, margin: '0 0 10px' }}>
         Customers asking for dates. Nothing is confirmed until you approve it.
       </p>
+
+      {/* Texting state, up front. Approving sends a text automatically, so
+          whether that's working changes what she has to do next. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                    fontSize: 12.5, marginBottom: 16 }}>
+        {smsStatus && (
+          <span style={{ color: smsStatus.enabled ? '#27ae60' : '#e67e22', fontWeight: 600 }}>
+            {smsStatus.enabled
+              ? `✓ Texting on via ${smsStatus.provider}`
+              : "⚠ Texting off — approvals won't text, use Copy message"}
+          </span>
+        )}
+        <button onClick={testText} disabled={testing}
+          style={{ ...smallBtn, background: '#2980b9' }}>
+          {testing ? 'Sending…' : 'Send test text'}
+        </button>
+      </div>
 
       {error && <Msg tone="bad">{error}</Msg>}
       {note && (
