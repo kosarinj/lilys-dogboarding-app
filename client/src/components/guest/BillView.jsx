@@ -489,7 +489,7 @@ function BillView({ billCode }) {
               replacing them — plenty of people would rather use Venmo, and the
               app works unchanged when cards are switched off. */}
           {cardEnabled && amountDue > 0 && bill.status !== 'cancelled' && (
-            <div style={{ marginBottom: '16px' }}>
+            <div className="no-print" style={{ marginBottom: '16px' }}>
               <button
                 onClick={payByCard}
                 disabled={payLoading}
@@ -511,18 +511,23 @@ function BillView({ billCode }) {
                   {payError}
                 </div>
               )}
-              <div style={{ fontSize: '13px', color: '#6c7a89', marginTop: '14px', textAlign: 'center' }}>
-                — or pay directly —
-              </div>
             </div>
           )}
-          {amountDue > 0 && bill.status !== 'cancelled' ? (
-            <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} />
-          ) : (
-            <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
-              <div><strong>Cash:</strong> Accepted</div>
-              <div><strong>Venmo:</strong> @lilykos</div>
-              <div><strong>Zelle:</strong> lilykos@me.com</div>
+          {/* The original invoice wording, unchanged. It reads as an invoice
+              should, and the buttons are an addition to it rather than a
+              replacement for it — swapping this out changed the character of
+              the whole document for the sake of two links. */}
+          <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
+            <div><strong>Cash:</strong> Accepted</div>
+            <div><strong>Venmo:</strong> @lilykos</div>
+            <div><strong>Zelle:</strong> lilykos@me.com</div>
+          </div>
+
+          {/* Buttons below the details, and hidden on a printed copy where a
+              tappable link is meaningless. */}
+          {amountDue > 0 && bill.status !== 'cancelled' && (
+            <div className="no-print" style={{ marginTop: '14px' }}>
+              <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} compact />
             </div>
           )}
         </div>
