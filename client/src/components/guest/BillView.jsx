@@ -482,7 +482,7 @@ function BillView({ billCode }) {
           <div style={{ fontWeight: '600', fontSize: '15px', color: '#2c3e50', marginBottom: '12px' }}>
             Payment Information
           </div>
-          <div style={{ fontSize: '13px', color: '#2c3e50', marginBottom: '12px', fontStyle: 'italic' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: '#2c3e50', marginBottom: '12px' }}>
             All services are paid in advance
           </div>
           {/* Card is an extra option, deliberately above the others but not
