@@ -558,7 +558,7 @@ function BillView({ billCode }) {
               fontWeight: '600',
               fontSize: '16px'
             }}>
-              Payment Due: {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
+              Payment due by {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
             </div>
           )}
         </div>

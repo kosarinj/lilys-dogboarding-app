@@ -201,7 +201,7 @@ function InvoiceView({ bill, onClose }) {
       `Thank you for choosing Lily's Dog Boarding!\n\n` +
       `You can view your invoice here:\n${shareableLink}\n\n` +
       `Invoice Total: $${bill.total_amount}\n` +
-      `Payment Due Date: ${formatDate(bill.items[0]?.check_in_date || bill.due_date)}\n\n` +
+      `Payment due by ${formatDate(bill.items[0]?.check_in_date || bill.due_date)}\n\n` +
       `If you have any questions, please don't hesitate to reach out.\n\n` +
       `Best regards,\nLily's Dog Boarding`
     )
@@ -638,7 +638,7 @@ function InvoiceView({ bill, onClose }) {
               Thank you for your business! 🐾
             </div>
             <div>
-              Invoice Date: {formatDate(bill.bill_date)} | Payment Due Date: {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
+              Invoice Date: {formatDate(bill.bill_date)} | Payment due by {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
             </div>
           </div>
         </div>
