@@ -15,7 +15,7 @@ export async function holidaysBetween(fromDate, toDate) {
     `SELECT holiday_date, name FROM holidays
      WHERE enabled = true AND holiday_date >= $1 AND holiday_date <= $2
      ORDER BY holiday_date`,
-    [fromDate, toDate]
+    [isoDate(fromDate), isoDate(toDate)]
   )
   return r.rows.map(h => ({
     // pg returns DATE as a Date; local components, not toISOString, which is
@@ -27,6 +27,15 @@ export async function holidaysBetween(fromDate, toDate) {
 
 function localDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// A date can reach us two ways: as 'YYYY-MM-DD' from a query string, or as a
+// Date from pg, which parses a DATE column into one. String(aDate) gives
+// 'Mon Dec 08 2025 ...', so slicing ten characters off it yields 'Mon Dec 08' —
+// which Postgres rejects as a date. Normalise before either is used.
+function isoDate(value) {
+  if (value instanceof Date) return localDate(value)
+  return String(value).slice(0, 10)
 }
 
 export async function getHolidaySurcharge() {
@@ -45,8 +54,8 @@ export async function getHolidaySurcharge() {
  * question; "Christmas Eve, Christmas Day" answers it before it's asked.
  */
 export async function holidayChargeForStay({ check_in_date, check_out_date, contracts = 1 }) {
-  const from = String(check_in_date).slice(0, 10)
-  const to = String(check_out_date).slice(0, 10)
+  const from = isoDate(check_in_date)
+  const to = isoDate(check_out_date)
   if (!from || !to || to <= from) {
     // A same-day daycare visit has no overnight, but the day itself can still
     // be a holiday — charge that one day when it is.
