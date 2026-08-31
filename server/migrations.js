@@ -1,5 +1,6 @@
 import { query } from './models/db.js'
 import { generateBookingCode } from './utils/bookingCode.js'
+import { holidaysForYears } from './utils/usHolidays.js'
 
 export async function runMigrations() {
   console.log('Running database migrations...')
@@ -299,6 +300,52 @@ export async function runMigrations() {
       ON CONFLICT (setting_key) DO NOTHING
     `)
     console.log('✓ Booking settings ready')
+
+    // ── Holiday calendar ─────────────────────────────────────────────────
+    // Boarding over a holiday is worth more and is harder to staff, so those
+    // nights carry a surcharge. Kept as dated rows rather than rules because
+    // most of these move — Thanksgiving is the fourth Thursday, Easter follows
+    // the lunar calendar — and a hand-typed list is right for one year and
+    // quietly wrong after that.
+    //
+    // `enabled` rather than deleting: switching one off should be reversible,
+    // and a deleted default would come back on the next seed.
+    await query(`
+      CREATE TABLE IF NOT EXISTS holidays (
+        id SERIAL PRIMARY KEY,
+        holiday_date DATE NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        enabled BOOLEAN DEFAULT true,
+        source VARCHAR(20) DEFAULT 'default',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(holiday_date, name)
+      )
+    `)
+
+    // Seeded a few years ahead and one behind, so past stays can still be
+    // re-billed correctly. ON CONFLICT DO NOTHING means a re-run never
+    // resurrects something switched off or overwrites a renamed one.
+    {
+      const thisYear = new Date().getFullYear()
+      const seed = holidaysForYears(thisYear - 1, thisYear + 3)
+      let added = 0
+      for (const h of seed) {
+        const r = await query(
+          `INSERT INTO holidays (holiday_date, name, source) VALUES ($1, $2, 'default')
+           ON CONFLICT (holiday_date, name) DO NOTHING`,
+          [h.date, h.name]
+        )
+        added += r.rowCount || 0
+      }
+      if (added) console.log(`✓ Seeded ${added} holiday date(s)`)
+    }
+
+    await query(`
+      INSERT INTO settings (setting_key, setting_value, description)
+      VALUES ('holiday_surcharge_per_day', 17.00, 'Extra charge per dog per holiday night')
+      ON CONFLICT (setting_key) DO NOTHING
+    `)
+    console.log('✓ Holiday calendar ready')
 
     console.log('✓ All migrations completed successfully')
   } catch (error) {

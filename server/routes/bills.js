@@ -1,6 +1,7 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
+import { holidayChargeForStay } from '../services/holidays.js'
 import twilio from 'twilio'
 
 const router = express.Router()
@@ -169,6 +170,22 @@ router.post('/', requireAuth, async (req, res) => {
       subtotal += parseFloat(stay.total_cost)
     })
 
+    // Holiday nights, per stay. Worked out here rather than when the stay is
+    // created so a holiday added to the calendar later still applies to a bill
+    // raised afterwards — the calendar is the authority, not a copy taken at
+    // booking time.
+    const holidayLines = []
+    for (const stay of stays) {
+      const h = await holidayChargeForStay({
+        check_in_date: stay.check_in_date,
+        check_out_date: stay.check_out_date,
+      })
+      if (h.count > 0 && h.total > 0) {
+        holidayLines.push({ stay, ...h })
+        subtotal += h.total
+      }
+    }
+
     const tax = 0 // No tax for now
     const total_amount = subtotal + tax
 
@@ -199,6 +216,21 @@ router.post('/', requireAuth, async (req, res) => {
     `, [customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, 0, 'draft', notes])
 
     const bill = billResult.rows[0]
+
+    // Holiday lines first, so they read as part of the stay they belong to.
+    for (const h of holidayLines) {
+      // Named rather than just counted: "Holiday surcharge $34" invites a
+      // question, "Christmas Eve, Christmas Day" answers it first.
+      const which = h.nights.map(n => n.name).join(', ')
+      await query(`
+        INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        bill.id, h.stay.id,
+        `Holiday surcharge — ${which}`,
+        h.count, h.perNight, h.total,
+      ])
+    }
 
     // Create bill items
     for (const stay of stays) {

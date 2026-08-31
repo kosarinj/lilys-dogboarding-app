@@ -14,6 +14,7 @@ import staysRoutes from './routes/stays.js'
 import billsRoutes from './routes/bills.js'
 import paymentsRoutes from './routes/payments.js'
 import bookingRoutes from './routes/booking.js'
+import holidaysRoutes from './routes/holidays.js'
 import ratesRoutes from './routes/rates.js'
 import settingsRoutes from './routes/settings.js'
 import analyticsRoutes from './routes/analytics.js'
@@ -58,6 +59,7 @@ app.use('/api/payments', paymentsRoutes)
 // Public: reachable only with a booking code Lily handed out, same access model
 // as the guest bill page.
 app.use('/api/book', bookingRoutes)
+app.use('/api/holidays', holidaysRoutes)
 app.use('/api/rates', requireAuth, ratesRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/analytics', requireAuth, analyticsRoutes)
