@@ -49,6 +49,9 @@ export default function BookingRequests() {
   const [draft, setDraft] = useState({})
   const [recent, setRecent] = useState([])
   const [smsStatus, setSmsStatus] = useState(null)
+  const [ownerPhone, setOwnerPhone] = useState('')
+  const [phoneSaved, setPhoneSaved] = useState(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [testing, setTesting] = useState(false)
 
   const load = async () => {
@@ -75,7 +78,34 @@ export default function BookingRequests() {
     api.get('/settings/sms/status')
       .then(r => setSmsStatus(r.data))
       .catch(() => setSmsStatus({ enabled: false }))
+    api.get('/settings/owner/phone')
+      .then(r => setOwnerPhone(r.data.phone || ''))
+      .catch(() => {})
   }, [])
+
+  const requestLink = `${window.location.origin}/request`
+
+  const copyRequestLink = async () => {
+    try {
+      await navigator.clipboard.writeText(requestLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      window.prompt('Copy this link:', requestLink)
+    }
+  }
+
+  const saveOwnerPhone = async () => {
+    setPhoneSaved(null)
+    try {
+      const r = await api.put('/settings/owner/phone', { phone: ownerPhone })
+      setOwnerPhone(r.data.phone || '')
+      setPhoneSaved(r.data.phone ? 'Saved' : 'Turned off')
+    } catch (e) {
+      setPhoneSaved(e.response?.data?.error || 'Could not save')
+    }
+    setTimeout(() => setPhoneSaved(null), 3000)
+  }
 
   const testText = async () => {
     const phone = window.prompt('Send a test text to which number?')
@@ -250,6 +280,55 @@ export default function BookingRequests() {
           style={{ ...smallBtn, background: '#2980b9' }}>
           {testing ? 'Sending…' : 'Send test text'}
         </button>
+      </div>
+
+      {/* The link she hands out, and where the alert about it lands. Both live
+          here rather than in a settings screen because this is the page she is
+          on when she wonders why nobody is requesting, or why she didn't hear
+          about one that did. */}
+      <div style={{ background: '#fdf7f9', border: '1px solid #f0d5de', borderRadius: 8,
+                    padding: '14px 16px', marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#2c3e50', marginBottom: 6 }}>
+          Your booking link
+        </div>
+        <div style={{ fontSize: 12.5, color: '#6c7a89', marginBottom: 10 }}>
+          One link for everyone — send it once, post it anywhere. Customers verify their
+          phone by text and land on their own booking page. It never changes.
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+          <code style={{ background: '#fff', border: '1px solid #e8d3da', borderRadius: 5,
+                         padding: '7px 10px', fontSize: 12.5, color: '#2c3e50' }}>
+            {requestLink}
+          </code>
+          <button onClick={copyRequestLink} style={{ ...smallBtn, background: '#e8547c' }}>
+            {linkCopied ? '✓ Copied' : 'Copy link'}
+          </button>
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#2c3e50', marginBottom: 6 }}>
+          Text me when a request comes in
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="tel"
+            value={ownerPhone}
+            onChange={e => setOwnerPhone(e.target.value)}
+            placeholder="Your mobile number"
+            style={{ padding: '7px 10px', fontSize: 13, borderRadius: 5,
+                     border: '1px solid #d9c3cb', width: 190 }}
+          />
+          <button onClick={saveOwnerPhone} style={{ ...smallBtn, background: '#2980b9' }}>
+            Save
+          </button>
+          {phoneSaved && (
+            <span style={{ fontSize: 12.5, color: '#27ae60', fontWeight: 600 }}>{phoneSaved}</span>
+          )}
+          {!ownerPhone && (
+            <span style={{ fontSize: 12.5, color: '#e67e22' }}>
+              Not set — you won't be told about new requests.
+            </span>
+          )}
+        </div>
       </div>
 
       {error && <Msg tone="bad">{error}</Msg>}

@@ -356,6 +356,34 @@ export async function runMigrations() {
     await query(`UPDATE bill_items SET item_type = 'stay' WHERE item_type IS NULL`)
     console.log('✓ Holiday calendar ready')
 
+    // ── Self-service booking access ──────────────────────────────────────
+    // One shared link everybody starts from, so Lily never has to look up and
+    // send a personal link again. The link itself proves nothing, so a caller
+    // proves the phone number is theirs by receiving a code on it — a number
+    // alone would let anyone who knows a client's number see that client's dogs.
+    //
+    // Rows are kept, not deleted on use, so a code can't be replayed and so a
+    // burst of requests for one number is visible rather than silent.
+    await query(`
+      CREATE TABLE IF NOT EXISTS booking_access_codes (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        phone VARCHAR(32) NOT NULL,
+        code_hash VARCHAR(64) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await query(`CREATE INDEX IF NOT EXISTS idx_access_codes_phone ON booking_access_codes(phone, created_at)`)
+    console.log('✓ Booking access codes ready')
+
+    // Where the "new request" text goes. app_config, not settings: settings
+    // stores DECIMAL rates and a phone number is not a number in that sense —
+    // it has a leading + and must not be rounded.
+    await query(`CREATE TABLE IF NOT EXISTS app_config (key VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)`)
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

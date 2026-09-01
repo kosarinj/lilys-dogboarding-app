@@ -157,4 +157,40 @@ router.post('/sms/test', requireAuth, async (req, res) => {
   }
 })
 
+/**
+ * Lily's own number, for the "new booking request" text.
+ *
+ * app_config rather than the settings table: settings values are DECIMAL, and a
+ * phone number has a leading + and must not be rounded.
+ */
+router.get('/owner/phone', requireAuth, async (req, res) => {
+  try {
+    const r = await query(`SELECT value FROM app_config WHERE key = 'owner_phone'`)
+    res.json({ phone: r.rows[0]?.value || '' })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+router.put('/owner/phone', requireAuth, async (req, res) => {
+  try {
+    const { phone } = req.body || {}
+    // Empty clears it, which is how she turns the notification off.
+    if (!phone) {
+      await query(`DELETE FROM app_config WHERE key = 'owner_phone'`)
+      return res.json({ phone: '' })
+    }
+    const e164 = toE164(phone)
+    if (!e164) return res.status(400).json({ error: 'That does not look like a phone number.' })
+    await query(
+      `INSERT INTO app_config (key, value) VALUES ('owner_phone', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+      [e164]
+    )
+    res.json({ phone: e164 })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 export default router

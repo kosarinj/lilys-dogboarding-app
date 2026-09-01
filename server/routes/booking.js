@@ -4,6 +4,7 @@ import { checkAvailability, getBookingRules, sizeAllowed } from '../services/ava
 import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 import { isStripeEnabled, createBookingCheckoutSession } from '../services/stripe.js'
 import { todayStr } from '../utils/dates.js'
+import { sendSms } from '../services/sms.js'
 
 const router = express.Router()
 
@@ -143,6 +144,15 @@ router.post('/:code/request', async (req, res) => {
     ])
     const stayId = stay.rows[0].id
 
+    // Tell Lily. A request nobody knows about is a request that sits until the
+    // customer chases it, and the whole point of self-service is that she stops
+    // being the one who has to start the conversation.
+    //
+    // Not awaited into the response's success: the request is already saved,
+    // and a text that fails must not make the customer think it wasn't.
+    notifyOwner(customer, quote, notes).catch(e =>
+      console.error('Owner notification failed:', e.message))
+
     if (!isStripeEnabled()) {
       // No cards configured: the request stands on its own and she settles up
       // the way she does today.
@@ -163,6 +173,31 @@ router.post('/:code/request', async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+
+/**
+ * Text Lily that a request came in.
+ *
+ * Silent when no number is configured — texting is optional throughout this app
+ * and a missing number is a setting she hasn't filled in, not an error worth
+ * failing a booking over.
+ */
+async function notifyOwner(customer, quote, notes) {
+  const r = await query(`SELECT value FROM app_config WHERE key = 'owner_phone'`)
+  const to = r.rows[0]?.value
+  if (!to) return
+
+  const d = (v) => {
+    const [, mo, dd] = String(v).slice(0, 10).split('-')
+    return `${Number(mo)}/${Number(dd)}`
+  }
+  await sendSms(to,
+    `New booking request: ${quote.dog_name} for ${customer.name}, ` +
+    `${d(quote.check_in_date)}–${d(quote.check_out_date)}, ` +
+    `$${Number(quote.total_cost || 0).toFixed(2)}.` +
+    (notes ? ` Note: ${String(notes).slice(0, 80)}` : '') +
+    ` Approve it in the app.`
+  )
+}
 
 const clientUrl = () =>
   process.env.CLIENT_URL || process.env.PUBLIC_URL || 'http://localhost:5173'

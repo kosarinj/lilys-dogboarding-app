@@ -14,6 +14,7 @@ import staysRoutes from './routes/stays.js'
 import billsRoutes from './routes/bills.js'
 import paymentsRoutes from './routes/payments.js'
 import bookingRoutes from './routes/booking.js'
+import accessRoutes from './routes/access.js'
 import holidaysRoutes from './routes/holidays.js'
 import ratesRoutes from './routes/rates.js'
 import settingsRoutes from './routes/settings.js'
@@ -59,6 +60,9 @@ app.use('/api/payments', paymentsRoutes)
 // Public: reachable only with a booking code Lily handed out, same access model
 // as the guest bill page.
 app.use('/api/book', bookingRoutes)
+// Public and unauthenticated by design: this is how someone who has lost their
+// link gets it back. Rate limited per number inside the route.
+app.use('/api/access', accessRoutes)
 app.use('/api/holidays', holidaysRoutes)
 app.use('/api/rates', requireAuth, ratesRoutes)
 app.use('/api/settings', settingsRoutes)
