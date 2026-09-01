@@ -653,14 +653,10 @@ function InvoiceView({ bill, onClose }) {
               All services are paid in advance
             </div>
             {/* The headline states the rule; this says what it costs the customer to
-                ignore it — a reservation is not held until the payment arrives. */}
-            <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '12px' }}>
-              Just a friendly reminder — payment is required in advance to confirm and guarantee
-              your dog’s boarding or daycare reservation. Reservations are only secured once
-              payment has been received.
-            </div>
+                ignore it — the reservation is not held until the payment arrives. */}
             <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '16px' }}>
-              Thank you for your understanding and continued support! 🐾
+              Please don’t forget to make your payment in order to secure your dog’s boarding
+              or daycare reservation 🐾
             </div>
             <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
               <div><strong>Cash:</strong> Accepted</div>
