@@ -2,7 +2,7 @@ import express from 'express'
 import { query } from '../models/db.js'
 import { checkAvailability, getBookingRules, sizeAllowed } from '../services/availability.js'
 import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
-import { isStripeEnabled, createBookingCheckoutSession } from '../services/stripe.js'
+import { isStripeEnabled, createBookingCheckoutSession, cancelPaymentIntent } from '../services/stripe.js'
 import { todayStr } from '../utils/dates.js'
 import { sendSms } from '../services/sms.js'
 
@@ -196,6 +196,84 @@ async function notifyOwner(customer, quote, notes) {
     `$${Number(quote.total_cost || 0).toFixed(2)}.` +
     (notes ? ` Note: ${String(notes).slice(0, 80)}` : '') +
     ` Approve it in the app.`
+  )
+}
+
+/**
+ * POST /:code/cancel — the customer changes their mind.
+ *
+ * Only a request Lily hasn't acted on yet. Once she has approved it the dates
+ * are held, the customer has been told, and money may have moved — undoing that
+ * is a conversation, not a button, and it already exists on her side. A
+ * customer who needs out of an approved booking is told to get in touch, which
+ * is what they'd have had to do before this existed anyway.
+ *
+ * The stay must belong to a dog of THIS customer. Without that check a booking
+ * code would cancel anyone's stay by id, which is a worse hole than the one
+ * self-service closes.
+ */
+router.post('/:code/cancel', async (req, res) => {
+  try {
+    const customer = await customerByCode(req.params.code)
+    if (!customer) return res.status(404).json({ error: 'Booking link not recognised' })
+
+    const { stayId } = req.body || {}
+    const r = await query(`
+      SELECT s.* FROM stays s JOIN dogs d ON s.dog_id = d.id
+      WHERE s.id = $1 AND d.customer_id = $2
+    `, [stayId, customer.id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'That booking is not on your account' })
+    const stay = r.rows[0]
+
+    if (stay.status === 'cancelled') return res.json({ success: true, alreadyCancelled: true })
+    if (stay.status !== 'requested') {
+      return res.status(409).json({
+        error: 'Lily has already confirmed this one — please text her to change or cancel it.',
+      })
+    }
+
+    // Release the hold so the money goes back to their card. Not allowed to
+    // block the cancellation: an uncancelled authorization expires on its own,
+    // and refusing to cancel would leave dates blocked over a Stripe hiccup.
+    if (stay.payment_intent_id && stay.payment_state === 'authorized') {
+      try {
+        await cancelPaymentIntent(stay.payment_intent_id)
+        await query(`UPDATE stays SET payment_state = 'released' WHERE id = $1`, [stay.id])
+      } catch (e) {
+        console.error('Could not release hold on customer cancel:', e.message)
+      }
+    }
+
+    await query(`
+      UPDATE stays SET status = 'cancelled', decline_reason = 'Cancelled by customer',
+             updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [stay.id])
+
+    // She needs to know the night is free again — she may have been holding it.
+    notifyOwnerCancelled(customer, stay).catch(e =>
+      console.error('Cancel notification failed:', e.message))
+
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Booking cancel error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+async function notifyOwnerCancelled(customer, stay) {
+  const r = await query(`SELECT value FROM app_config WHERE key = 'owner_phone'`)
+  const to = r.rows[0]?.value
+  if (!to) return
+  const dog = await query(`SELECT name FROM dogs WHERE id = $1`, [stay.dog_id])
+  // pg hands back a DATE as a Date at local midnight. Local components, not
+  // toISOString — that is UTC and reads a day early anywhere ahead of it.
+  const d = (v) => v instanceof Date
+    ? `${v.getMonth() + 1}/${v.getDate()}`
+    : `${Number(String(v).slice(5, 7))}/${Number(String(v).slice(8, 10))}`
+  await sendSms(to,
+    `Request cancelled by ${customer.name}: ${dog.rows[0]?.name || 'their dog'}, ` +
+    `${d(stay.check_in_date)}–${d(stay.check_out_date)}. Those nights are free again.`
   )
 }
 

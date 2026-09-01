@@ -38,6 +38,8 @@ export default function BookingPage() {
   const [quote, setQuote] = useState(null)
   const [quoteError, setQuoteError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [cancelling, setCancelling] = useState(null)
+  const [cancelError, setCancelError] = useState(null)
 
   const justRequested = params.get('requested') === '1'
   const cancelled = params.get('cancelled') === '1'
@@ -98,6 +100,26 @@ export default function BookingPage() {
     }
   }
 
+  // Only a request she hasn't acted on. Once it's confirmed the dates are held
+  // and she may have turned other people away, so that conversation goes
+  // through her — the button would make it look like a customer's decision
+  // alone when it isn't.
+  const cancelRequest = async (stay) => {
+    if (!window.confirm(
+      `Cancel your request for ${stay.dog_name}, ${fmt(stay.check_in_date)}–${fmt(stay.check_out_date)}?`
+    )) return
+    setCancelling(stay.id); setCancelError(null)
+    try {
+      await axios.post(`${API}/book/${code}/cancel`, { stayId: stay.id })
+      const r = await axios.get(`${API}/book/${code}`)
+      setData(r.data)
+    } catch (err) {
+      setCancelError(err.response?.data?.error || 'Could not cancel — please text Lily.')
+    } finally {
+      setCancelling(null)
+    }
+  }
+
   if (loading) return <Shell><p style={{ color: '#6c7a89' }}>Loading…</p></Shell>
   if (error) return <Shell><p style={{ color: '#c0392b' }}>{error}</p></Shell>
 
@@ -129,19 +151,45 @@ export default function BookingPage() {
       {data.upcoming?.length > 0 && (
         <section style={card}>
           <h2 style={h2}>Coming up</h2>
+          {cancelError && (
+            <div style={{ fontSize: 13, color: '#c0392b', marginBottom: 8 }}>{cancelError}</div>
+          )}
           {data.upcoming.map(s => (
-            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 14 }}>
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between',
+                                     alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 14 }}>
               <span>{s.dog_name} · {fmt(s.check_in_date)} – {fmt(s.check_out_date)}</span>
-              <span style={{
-                fontWeight: 600,
-                color: s.status === 'requested' ? '#b8860b'
-                     : s.paid ? '#27ae60' : '#e67e22',
-              }}>
-                {s.status === 'requested' ? 'Awaiting confirmation'
-                 : s.paid ? 'Confirmed' : 'Awaiting payment'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  fontWeight: 600,
+                  color: s.status === 'requested' ? '#b8860b'
+                       : s.paid ? '#27ae60' : '#e67e22',
+                }}>
+                  {s.status === 'requested' ? 'Awaiting confirmation'
+                   : s.paid ? 'Confirmed' : 'Awaiting payment'}
+                </span>
+                {s.status === 'requested' && (
+                  <button
+                    onClick={() => cancelRequest(s)}
+                    disabled={cancelling === s.id}
+                    style={{
+                      padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      color: '#a4353a', background: '#fff', border: '1px solid #e8b4bd',
+                      borderRadius: 5,
+                    }}>
+                    {cancelling === s.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                )}
               </span>
             </div>
           ))}
+          {/* Said once, here, rather than as a disabled button on every row —
+              the answer to "how do I cancel this one" should be visible, not
+              discovered by clicking something that doesn't work. */}
+          {data.upcoming.some(s => s.status !== 'requested') && (
+            <div style={{ fontSize: 12.5, color: '#6c7a89', marginTop: 8 }}>
+              To change or cancel a confirmed stay, please text Lily.
+            </div>
+          )}
           {/* A confirmed stay is one she's agreed to, so it can be paid now.
               Nothing is owed on a request she hasn't accepted yet. */}
           {data.upcoming.some(s => s.status !== 'requested' && !s.paid) && !data.cardPayments && (
