@@ -516,6 +516,16 @@ function BillView({ billCode }) {
           <div style={{ fontSize: '17px', fontWeight: 700, color: '#2c3e50', marginBottom: '12px' }}>
             All services are paid in advance
           </div>
+          {/* The headline states the rule; this says what it costs the customer to
+              ignore it — a reservation is not held until the payment arrives. */}
+          <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '12px' }}>
+            Just a friendly reminder — payment is required in advance to confirm and guarantee
+            your dog’s boarding or daycare reservation. Reservations are only secured once
+            payment has been received.
+          </div>
+          <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '16px' }}>
+            Thank you for your understanding and continued support! 🐾
+          </div>
           {/* Card is an extra option, deliberately above the others but not
               replacing them — plenty of people would rather use Venmo, and the
               app works unchanged when cards are switched off. */}
