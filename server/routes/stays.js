@@ -703,7 +703,7 @@ router.post('/requests/:id/approve', async (req, res) => {
  * The same text goes out by SMS and sits behind the copy button, so they can't
  * drift into saying different things about the same booking.
  */
-function confirmationText({ customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, total_cost }) {
+function confirmationText({ customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, total_cost, payment_state }) {
   const t = (v) => {
     if (!v) return ''
     const [h, m] = String(v).split(':').map(Number)
@@ -717,10 +717,25 @@ function confirmationText({ customer_name, dog_name, check_in_date, check_out_da
     return `${Number(mo)}/${Number(dd)}`
   }
   const first = String(customer_name || '').split(' ')[0]
-  return `Hi ${first}, you're all set — ${dog_name} is booked in for ` +
-    `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}. ` +
-    `Total $${Number(total_cost || 0).toFixed(2)}. ` +
-    `Venmo @lilykos or Zelle lilykos@me.com whenever suits. Thank you! — Lily's Dog Boarding`
+  const dates = `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}`
+  const amount = `$${Number(total_cost || 0).toFixed(2)}`
+
+  // A card was authorised at request time and captured on approval, so the
+  // money is already in. Telling this customer to Venmo would be asking to be
+  // paid twice.
+  if (payment_state === 'captured') {
+    return `Hi ${first}, you're all set — ${dog_name} is booked in for ${dates}. ` +
+      `${amount} paid. Thank you! — Lily's Dog Boarding`
+  }
+
+  // Everyone else owes money. "You're all set" was the old wording here and it
+  // was wrong twice over: it told them they were done when they hadn't paid,
+  // and it made the later "payment received" text read as a repeat. Approval
+  // and confirmation are two different events and the customer needs to hear
+  // them as two.
+  return `Hi ${first}, Lily has approved your request for ${dog_name}, ${dates}. ` +
+    `Total ${amount}. Your booking is confirmed once payment is received — ` +
+    `Venmo @lilykos or Zelle lilykos@me.com. Thank you! — Lily's Dog Boarding`
 }
 
 /**

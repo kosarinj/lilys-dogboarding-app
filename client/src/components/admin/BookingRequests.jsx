@@ -185,14 +185,23 @@ export default function BookingRequests() {
     } finally { setBusyId(null) }
   }
 
-  const confirmMessage = (row) =>
-    `Hi ${String(row.customer_name || '').split(' ')[0]}, you're all set — ` +
-    `${row.dog_name} is booked in for ${fmt(row.check_in_date)}` +
-    `${row.check_in_time ? ` at ${hhmm(row.check_in_time)}` : ''} ` +
-    `through ${fmt(row.check_out_date)}` +
-    `${row.check_out_time ? ` at ${hhmm(row.check_out_time)}` : ''}. ` +
-    `Total is $${Number(row.total_cost || 0).toFixed(2)}. ` +
-    `Venmo @lilykos or Zelle lilykos@me.com whenever suits. Thank you!`
+  // Word for word what the server texts on approval, so the message she pastes
+  // by hand when texting is off says the same thing as the one that sends
+  // itself. Two versions of this drifting apart is how a customer gets told
+  // they're confirmed by one route and awaiting payment by the other.
+  const confirmMessage = (row) => {
+    const dates = `${fmt(row.check_in_date)}${row.check_in_time ? ` at ${hhmm(row.check_in_time)}` : ''}` +
+      ` through ${fmt(row.check_out_date)}${row.check_out_time ? ` at ${hhmm(row.check_out_time)}` : ''}`
+    const first = String(row.customer_name || '').split(' ')[0]
+    const amount = `$${Number(row.total_cost || 0).toFixed(2)}`
+    if (row.payment_state === 'captured') {
+      return `Hi ${first}, you're all set — ${row.dog_name} is booked in for ${dates}. ` +
+        `${amount} paid. Thank you!`
+    }
+    return `Hi ${first}, Lily has approved your request for ${row.dog_name}, ${dates}. ` +
+      `Total ${amount}. Your booking is confirmed once payment is received — ` +
+      `Venmo @lilykos or Zelle lilykos@me.com. Thank you!`
+  }
 
   // Copying is only ever done in order to send, so it records that the customer
   // was told. Undoable from the row, since a copy isn't proof she actually sent.
