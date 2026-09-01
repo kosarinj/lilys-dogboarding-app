@@ -194,9 +194,15 @@ function BillView({ billCode }) {
 
   if (!bill || !bill.items) return null
 
+  // A bill line is either a stay or a surcharge hung off one, and both carry the
+  // same stay_id. The table below reads the stay's own columns, so a surcharge
+  // left in this list would be drawn as a second stay. Split them once, here.
+  const stayItems = bill.items.filter(i => i.item_type !== 'holiday')
+  const holidayItems = bill.items.filter(i => i.item_type === 'holiday')
+
   // Group items by dog
   const dogGroups = {}
-  bill.items.forEach(item => {
+  stayItems.forEach(item => {
     const dogName = item.dog_name
     if (!dogGroups[dogName]) {
       dogGroups[dogName] = {
@@ -309,7 +315,7 @@ function BillView({ billCode }) {
         </div>
 
         {/* Dates */}
-        {bill.items.length > 0 && (
+        {stayItems.length > 0 && (
           <div style={{ marginBottom: '32px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
@@ -319,7 +325,7 @@ function BillView({ billCode }) {
               <div>
                 <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '4px' }}>Stay Dates</div>
                 <div style={{ fontSize: '16px', color: '#2c3e50' }}>
-                  {formatDateRange(bill.items[0].check_in_date, bill.items[bill.items.length - 1].check_out_date)}
+                  {formatDateRange(stayItems[0].check_in_date, stayItems[stayItems.length - 1].check_out_date)}
                 </div>
               </div>
             </div>
@@ -342,7 +348,7 @@ function BillView({ billCode }) {
               </tr>
             </thead>
             <tbody>
-              {bill.items.map((item, index) => (
+              {stayItems.map((item, index) => (
                 <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '16px 12px' }}>
                     <div style={{ fontWeight: '600', color: '#2c3e50' }}>
@@ -377,10 +383,35 @@ function BillView({ billCode }) {
                 </tr>
               ))}
 
+              {/* Holiday nights, named so the charge explains itself. */}
+              {holidayItems.map((item, index) => (
+                <tr key={`hol-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '16px 12px' }}>
+                    <div style={{ fontWeight: '600', color: '#2c3e50' }}>
+                      {item.description}
+                    </div>
+                    {holidayItems.length > 1 && (
+                      <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>
+                        {item.dog_name}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '16px 12px', textAlign: 'center', color: '#2c3e50' }}>
+                    {item.quantity}
+                  </td>
+                  <td style={{ padding: '16px 12px', textAlign: 'right', color: '#2c3e50' }}>
+                    {formatCurrency(item.unit_price)}
+                  </td>
+                  <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: '600', color: '#2c3e50' }}>
+                    {formatCurrency(item.total_price)}
+                  </td>
+                </tr>
+              ))}
+
               {/* Additional Services */}
-              {bill.items.some(item => item.dropoff_fee > 0 || item.pickup_fee > 0 || item.extra_charge > 0) && (
+              {stayItems.some(item => item.dropoff_fee > 0 || item.pickup_fee > 0 || item.extra_charge > 0) && (
                 <>
-                  {bill.items.filter(item => item.dropoff_fee > 0).map((item, index) => (
+                  {stayItems.filter(item => item.dropoff_fee > 0).map((item, index) => (
                     <tr key={`dropoff-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '16px 12px', color: '#7f8c8d' }}>Drop-off Service</td>
                       <td style={{ padding: '16px 12px', textAlign: 'center', color: '#7f8c8d' }}>-</td>
@@ -390,7 +421,7 @@ function BillView({ billCode }) {
                       </td>
                     </tr>
                   ))}
-                  {bill.items.filter(item => item.pickup_fee > 0).map((item, index) => (
+                  {stayItems.filter(item => item.pickup_fee > 0).map((item, index) => (
                     <tr key={`pickup-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '16px 12px', color: '#7f8c8d' }}>Pick-up Service</td>
                       <td style={{ padding: '16px 12px', textAlign: 'center', color: '#7f8c8d' }}>-</td>
@@ -400,11 +431,11 @@ function BillView({ billCode }) {
                       </td>
                     </tr>
                   ))}
-                  {bill.items.filter(item => item.extra_charge > 0).map((item, index) => (
+                  {stayItems.filter(item => item.extra_charge > 0).map((item, index) => (
                     <tr key={`extra-${index}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '16px 12px', color: '#7f8c8d' }}>
                         {item.extra_charge_comments || 'Additional Charge'}
-                        {bill.items.filter(i => i.extra_charge > 0).length > 1 && (
+                        {stayItems.filter(i => i.extra_charge > 0).length > 1 && (
                           <span style={{ fontSize: '12px', marginLeft: '4px' }}>({item.dog_name})</span>
                         )}
                       </td>
@@ -558,7 +589,7 @@ function BillView({ billCode }) {
               fontWeight: '600',
               fontSize: '16px'
             }}>
-              Payment due by {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
+              Payment due by {formatDate(stayItems[0]?.check_in_date || bill.due_date)}
             </div>
           )}
         </div>

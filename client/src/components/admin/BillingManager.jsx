@@ -195,9 +195,12 @@ function BillingManager() {
 
           {customerGroups.map(group => {
             const selectedCount = group.stays.filter(s => selectedStays[s.id]).length
+            // Holiday nights are added when the bill is raised, so the preview
+            // has to count them too — otherwise the figure Lily ticks here is
+            // not the figure the customer is sent.
             const totalAmount = group.stays
               .filter(s => selectedStays[s.id])
-              .reduce((sum, s) => sum + parseFloat(s.total_cost), 0)
+              .reduce((sum, s) => sum + parseFloat(s.total_cost) + parseFloat(s.holiday_total || 0), 0)
 
             return (
               <div key={group.customer_id} style={{
@@ -275,9 +278,14 @@ function BillingManager() {
                         <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
                           {stay.days_count} day{stay.days_count > 1 ? 's' : ''}
                         </div>
+                        {stay.holiday_total > 0 && (
+                          <div style={{ fontSize: '12px', color: 'var(--theme-primary, #f472b6)', fontWeight: '600', marginTop: '2px' }}>
+                            🎄 {stay.holiday_nights.map(n => n.name).join(', ')} +{formatCurrency(stay.holiday_total)}
+                          </div>
+                        )}
                       </div>
                       <div style={{ fontWeight: '700', fontSize: '15px', color: '#2c3e50' }}>
-                        {formatCurrency(stay.total_cost)}
+                        {formatCurrency(parseFloat(stay.total_cost) + parseFloat(stay.holiday_total || 0))}
                       </div>
                     </label>
                   ))}

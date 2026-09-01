@@ -211,9 +211,17 @@ function InvoiceView({ bill, onClose }) {
 
   if (!bill || !bill.items) return null
 
+  // A bill line is either a stay or a surcharge hung off one, and both carry the
+  // same stay_id. Everything below reads the stay's own columns — days, rate,
+  // total_cost — so a surcharge left in this list would be drawn and counted as
+  // a second night of boarding. Split them once, here.
+  const stayItems = bill.items.filter(i => i.item_type !== 'holiday')
+  const holidayItems = bill.items.filter(i => i.item_type === 'holiday')
+  const holidayTotal = holidayItems.reduce((sum, i) => sum + parseFloat(i.total_price || 0), 0)
+
   // Group items by dog
   const dogGroups = {}
-  bill.items.forEach(item => {
+  stayItems.forEach(item => {
     const dogName = item.dog_name
     if (!dogGroups[dogName]) {
       dogGroups[dogName] = {
@@ -236,13 +244,13 @@ function InvoiceView({ bill, onClose }) {
   let holidaySurcharge = 0
 
   // Determine service type - check if any items are daycare
-  const hasDaycare = bill.items.some(item => item.stay_type === 'daycare')
-  const hasBoarding = bill.items.some(item => item.stay_type === 'boarding')
+  const hasDaycare = stayItems.some(item => item.stay_type === 'daycare')
+  const hasBoarding = stayItems.some(item => item.stay_type === 'boarding')
 
   // Collect all extra charge items with their comments
   const extraCharges = []
 
-  bill.items.forEach(item => {
+  stayItems.forEach(item => {
     const itemCost = parseFloat(item.total_cost)
     const dropoffFee = parseFloat(item.dropoff_fee || 0)
     const pickupFee = parseFloat(item.pickup_fee || 0)
@@ -397,10 +405,10 @@ function InvoiceView({ bill, onClose }) {
           </div>
 
           {/* Dates */}
-          {bill.items.length > 0 && (
+          {stayItems.length > 0 && (
             <div style={{ marginBottom: '32px' }}>
               <div style={{ fontSize: '16px', color: '#2c3e50', marginBottom: '8px' }}>
-                <strong>Dates:</strong> {formatDateRange(bill.items[0].check_in_date, bill.items[bill.items.length - 1].check_out_date)}
+                <strong>Dates:</strong> {formatDateRange(stayItems[0].check_in_date, stayItems[stayItems.length - 1].check_out_date)}
               </div>
             </div>
           )}
@@ -427,7 +435,7 @@ function InvoiceView({ bill, onClose }) {
             marginBottom: '24px'
           }}>
             {/* Boarding */}
-            {bill.items.map((item, index) => {
+            {stayItems.map((item, index) => {
               const itemBoardingCost = parseFloat(item.total_cost) - parseFloat(item.dropoff_fee || 0) - parseFloat(item.pickup_fee || 0) - parseFloat(item.extra_charge || 0)
               return (
                 <div key={index} style={{
@@ -492,6 +500,31 @@ function InvoiceView({ bill, onClose }) {
                 </div>
               )
             })}
+
+            {/* Holiday nights. Named, not just totalled: "Holiday surcharge $34"
+                invites a question, "Christmas Eve, Christmas Day" answers it. */}
+            {holidayItems.map((item, index) => (
+              <div key={`hol-${index}`} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+                fontSize: '16px',
+                color: '#2c3e50'
+              }}>
+                <div>
+                  🎄 {item.description}
+                  {holidayItems.length > 1 && (
+                    <span style={{ fontSize: '13px', color: '#7f8c8d', marginLeft: '6px' }}>
+                      ({item.dog_name})
+                    </span>
+                  )}
+                  <div style={{ fontSize: '13px', color: '#7f8c8d' }}>
+                    {item.quantity} night{item.quantity > 1 ? 's' : ''} × {formatCurrency(item.unit_price)}
+                  </div>
+                </div>
+                <div><strong>{formatCurrency(item.total_price)}</strong></div>
+              </div>
+            ))}
 
             {/* Drop-off/Pick-up Services and Extra Charges */}
             {(dropoffTotal > 0 || pickupTotal > 0 || extraChargeTotal > 0) && (
@@ -638,7 +671,7 @@ function InvoiceView({ bill, onClose }) {
               Thank you for your business! 🐾
             </div>
             <div>
-              Invoice Date: {formatDate(bill.bill_date)} | Payment due by {formatDate(bill.items[0]?.check_in_date || bill.due_date)}
+              Invoice Date: {formatDate(bill.bill_date)} | Payment due by {formatDate(stayItems[0]?.check_in_date || bill.due_date)}
             </div>
           </div>
         </div>

@@ -345,6 +345,15 @@ export async function runMigrations() {
       VALUES ('holiday_surcharge_per_day', 17.00, 'Extra charge per dog per holiday night')
       ON CONFLICT (setting_key) DO NOTHING
     `)
+
+    // A bill line is either the stay itself or a surcharge attached to it. Both
+    // carry the same stay_id, so without this the invoice cannot tell them
+    // apart and renders the surcharge as a second boarding line — the stay
+    // charged twice. Existing rows are stays.
+    await query(`
+      ALTER TABLE bill_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'stay'
+    `)
+    await query(`UPDATE bill_items SET item_type = 'stay' WHERE item_type IS NULL`)
     console.log('✓ Holiday calendar ready')
 
     console.log('✓ All migrations completed successfully')

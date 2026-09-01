@@ -35,7 +35,20 @@ router.get('/unbilled/stays', requireAuth, async (req, res) => {
         AND s.id NOT IN (SELECT stay_id FROM bill_items)
       ORDER BY c.name, s.check_out_date DESC
     `)
-    res.json(result.rows)
+
+    // Tell the picker what the bill will actually say. Without this the total
+    // shown next to a stay is the boarding cost alone, and a holiday stay
+    // silently bills higher than the number Lily just ticked.
+    const stays = []
+    for (const stay of result.rows) {
+      const h = await holidayChargeForStay(stay)
+      stays.push({
+        ...stay,
+        holiday_nights: h.nights,
+        holiday_total: h.total,
+      })
+    }
+    res.json(stays)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -91,7 +104,7 @@ router.get('/:id', requireAuth, async (req, res) => {
       JOIN stays s ON bi.stay_id = s.id
       JOIN dogs d ON s.dog_id = d.id
       WHERE bi.bill_id = $1
-      ORDER BY s.check_in_date
+      ORDER BY s.check_in_date, bi.item_type DESC, bi.id
     `, [id])
 
     bill.items = itemsResult.rows
@@ -132,7 +145,7 @@ router.get('/code/:code', async (req, res) => {
       JOIN stays s ON bi.stay_id = s.id
       JOIN dogs d ON s.dog_id = d.id
       WHERE bi.bill_id = $1
-      ORDER BY s.check_in_date
+      ORDER BY s.check_in_date, bi.item_type DESC, bi.id
     `, [bill.id])
 
     bill.items = itemsResult.rows
@@ -223,8 +236,8 @@ router.post('/', requireAuth, async (req, res) => {
       // question, "Christmas Eve, Christmas Day" answers it first.
       const which = h.nights.map(n => n.name).join(', ')
       await query(`
-        INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price, item_type)
+        VALUES ($1, $2, $3, $4, $5, $6, 'holiday')
       `, [
         bill.id, h.stay.id,
         `Holiday surcharge — ${which}`,
@@ -236,8 +249,8 @@ router.post('/', requireAuth, async (req, res) => {
     for (const stay of stays) {
       const description = `Boarding - ${stay.days_count} day${stay.days_count > 1 ? 's' : ''}`
       await query(`
-        INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price, item_type)
+        VALUES ($1, $2, $3, $4, $5, $6, 'stay')
       `, [bill.id, stay.id, description, stay.days_count, stay.daily_rate, stay.total_cost])
     }
 
