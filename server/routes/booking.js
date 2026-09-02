@@ -5,6 +5,7 @@ import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 import { isStripeEnabled, createBookingCheckoutSession, cancelPaymentIntent } from '../services/stripe.js'
 import { todayStr } from '../utils/dates.js'
 import { sendSms } from '../services/sms.js'
+import { holidayChargeForStay, syncHolidayFee } from '../services/holidays.js'
 
 const router = express.Router()
 
@@ -22,6 +23,7 @@ const router = express.Router()
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const round2 = (n) => Math.round(n * 100) / 100
 
 async function customerByCode(code) {
   const r = await query(
@@ -143,6 +145,7 @@ router.post('/:code/request', async (req, res) => {
       notes ? String(notes).slice(0, 1000) : null, quote.total_cost,
     ])
     const stayId = stay.rows[0].id
+    await syncHolidayFee(stayId)
 
     // Tell Lily. A request nobody knows about is a request that sits until the
     // customer chases it, and the whole point of self-service is that she stops
@@ -162,7 +165,7 @@ router.post('/:code/request', async (req, res) => {
     const session = await createBookingCheckoutSession({
       stayId,
       customer,
-      amount: quote.total_cost,
+      amount: quote.grand_total,
       description: `Boarding ${check_in_date} to ${check_out_date}`,
       successUrl: `${clientUrl()}/book/${req.params.code}?requested=1`,
       cancelUrl: `${clientUrl()}/book/${req.params.code}?cancelled=1`,
@@ -193,7 +196,7 @@ async function notifyOwner(customer, quote, notes) {
   await sendSms(to,
     `New booking request: ${quote.dog_name} for ${customer.name}, ` +
     `${d(quote.check_in_date)}–${d(quote.check_out_date)}, ` +
-    `$${Number(quote.total_cost || 0).toFixed(2)}.` +
+    `$${Number(quote.grand_total || 0).toFixed(2)}.` +
     (notes ? ` Note: ${String(notes).slice(0, 80)}` : '') +
     ` Approve it in the app.`
   )
@@ -336,8 +339,18 @@ async function buildQuote(customer, body) {
     dog_id, days_count, stay_type, rate_type,
     requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,
   })
+
+  // Holiday nights, shown before they commit. Quoting without this and billing
+  // with it is how a customer gets a bill that doesn't match the number they
+  // agreed to — and with cards on, a hold that doesn't cover what's owed.
+  const holiday = await holidayChargeForStay({ check_in_date, check_out_date })
+
   return {
-    ...priced, dog_name: dog.name, stay_type, rate_type,
+    ...priced,
+    holiday_fee: holiday.total,
+    holiday_note: holiday.nights.map(n => n.name).join(', ') || null,
+    grand_total: round2(priced.total_cost + holiday.total),
+    dog_name: dog.name, stay_type, rate_type,
     check_in_date, check_out_date, check_in_time: check_in_time || null,
     check_out_time: check_out_time || null, partial_day,
     requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,

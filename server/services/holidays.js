@@ -96,3 +96,56 @@ function addDays(isoDate, n) {
   const dt = new Date(Date.UTC(y, m - 1, d + n))
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`
 }
+
+/**
+ * Work out a stay's holiday surcharge and store it on the stay.
+ *
+ * The calendar stays the authority — this is a cache of what it currently says,
+ * not a decision frozen at booking time. Anything that changes which nights a
+ * stay covers, or which nights are holidays, calls this again.
+ *
+ * Returns the amount, so a caller that has just quoted a price can use it
+ * without reading the row back.
+ */
+export async function syncHolidayFee(stayId) {
+  const r = await query(
+    `SELECT id, check_in_date, check_out_date, status FROM stays WHERE id = $1`,
+    [stayId]
+  )
+  const stay = r.rows[0]
+  if (!stay) return 0
+
+  // A cancelled stay is not going to be billed, and re-pricing one on a
+  // calendar change would silently rewrite history.
+  if (stay.status === 'cancelled') return 0
+
+  const h = await holidayChargeForStay(stay)
+  const note = h.nights.map(n => n.name).join(', ') || null
+  await query(
+    `UPDATE stays SET holiday_fee = $2, holiday_note = $3 WHERE id = $1`,
+    [stayId, h.total, note]
+  )
+  return h.total
+}
+
+/**
+ * Re-price every stay that could be affected by a calendar change.
+ *
+ * Scoped by date rather than run over the whole table: switching off Veterans
+ * Day should not touch a stay in March. Cancelled and past-billed stays are
+ * left alone — a stay that has already been invoiced has an agreed price, and
+ * moving it after the fact is how a customer gets a bill that no longer matches
+ * what they were told.
+ */
+export async function refreshHolidayFees({ from, to } = {}) {
+  const params = []
+  let where = `s.status <> 'cancelled' AND s.id NOT IN (SELECT stay_id FROM bill_items WHERE stay_id IS NOT NULL)`
+  if (from && to) {
+    // A stay is affected if it overlaps the changed window at all.
+    params.push(from, to)
+    where += ` AND s.check_in_date <= $2 AND s.check_out_date >= $1`
+  }
+  const r = await query(`SELECT s.id FROM stays s WHERE ${where}`, params)
+  for (const row of r.rows) await syncHolidayFee(row.id)
+  return r.rows.length
+}

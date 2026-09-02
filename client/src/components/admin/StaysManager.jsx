@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { staysAPI, dogsAPI, settingsAPI, ratesAPI } from '../../utils/api'
 import './admin.css'
+import { stayTotal } from '../../utils/stayTotal'
 
 function StaysManager() {
   const [stays, setStays] = useState([])
@@ -719,7 +720,7 @@ function StaysManager() {
             return stay.dog_name?.toLowerCase().includes(term) || stay.customer_name?.toLowerCase().includes(term)
           })
           if (filtered.length === 0) return null
-          const total = filtered.reduce((sum, stay) => sum + parseFloat(stay.total_cost || 0), 0)
+          const total = filtered.reduce((sum, stay) => sum + stayTotal(stay), 0)
           return (
             <div style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -811,7 +812,7 @@ function StaysManager() {
                         <span style={{ color: '#95a5a6' }}>-</span>
                       )}
                     </td>
-                    <td><strong>{formatCurrency(stay.total_cost)}</strong></td>
+                    <td><strong>{formatCurrency(stayTotal(stay))}</strong></td>
                     <td>
                       <span className={`badge ${statusBadge.class}`}>
                         {statusBadge.text}

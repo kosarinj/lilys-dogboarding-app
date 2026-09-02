@@ -2,7 +2,7 @@ import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
 import { holidaysForYears } from '../utils/usHolidays.js'
-import { holidayChargeForStay, getHolidaySurcharge } from '../services/holidays.js'
+import { holidayChargeForStay, getHolidaySurcharge, refreshHolidayFees } from '../services/holidays.js'
 
 const router = express.Router()
 
@@ -60,7 +60,11 @@ router.post('/', requireAuth, async (req, res) => {
        RETURNING id`,
       [date, String(name).trim().slice(0, 120)]
     )
-    res.json({ success: true, id: r.rows[0]?.id })
+    // A stay quoted before this holiday existed is now under-priced. Re-price
+    // the ones this date touches, or the surcharge only appears on stays booked
+    // after Lily happened to add it.
+    const touched = await refreshHolidayFees({ from: date, to: date })
+    res.json({ success: true, id: r.rows[0]?.id, staysRepriced: touched })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }
@@ -70,8 +74,11 @@ router.post('/', requireAuth, async (req, res) => {
 router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const { enabled } = req.body || {}
+    const d = await query(`SELECT holiday_date FROM holidays WHERE id = $1`, [req.params.id])
     await query(`UPDATE holidays SET enabled = $2 WHERE id = $1`, [req.params.id, !!enabled])
-    res.json({ success: true })
+    const on = d.rows[0]?.holiday_date
+    const touched = on ? await refreshHolidayFees({ from: on, to: on }) : 0
+    res.json({ success: true, staysRepriced: touched })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }
@@ -88,8 +95,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
         error: 'Built-in holidays can be switched off but not deleted — a deleted one would return on the next update.',
       })
     }
+    const d = await query(`SELECT holiday_date FROM holidays WHERE id = $1`, [req.params.id])
+    const on = d.rows[0]?.holiday_date
     await query(`DELETE FROM holidays WHERE id = $1`, [req.params.id])
-    res.json({ success: true })
+    const touched = on ? await refreshHolidayFees({ from: on, to: on }) : 0
+    res.json({ success: true, staysRepriced: touched })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

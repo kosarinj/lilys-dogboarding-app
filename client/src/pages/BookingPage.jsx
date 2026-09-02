@@ -280,8 +280,13 @@ export default function BookingPage() {
                 {quote.dropoff_fee > 0 && <Row l="Drop-off" r={money(quote.dropoff_fee)} />}
                 {quote.pickup_fee > 0 && <Row l="Pick-up" r={money(quote.pickup_fee)} />}
                 {quote.puppy_fee > 0 && <Row l="Puppy care" r={money(quote.puppy_fee)} />}
+                {/* Named, not just added. A line saying "Holiday" invites the
+                    question; "Labor Day" answers it before they ask. */}
+                {quote.holiday_fee > 0 && (
+                  <Row l={`Holiday — ${quote.holiday_note}`} r={money(quote.holiday_fee)} />
+                )}
                 <div style={{ borderTop: '1px solid #ffc9d9', marginTop: 8, paddingTop: 8 }}>
-                  <Row bold l="Total" r={money(quote.total_cost)} />
+                  <Row bold l="Total" r={money(quote.grand_total ?? quote.total_cost)} />
                 </div>
               </div>
             )}
@@ -296,7 +301,7 @@ export default function BookingPage() {
               }}
             >
               {busy ? 'One moment…'
-                : data.cardPayments ? `Request and hold card — ${quote ? money(quote.total_cost) : ''}`
+                : data.cardPayments ? `Request and hold card — ${quote ? money(quote.grand_total ?? quote.total_cost) : ''}`
                 : 'Send request'}
             </button>
 

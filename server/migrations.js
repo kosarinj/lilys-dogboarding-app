@@ -379,6 +379,20 @@ export async function runMigrations() {
     await query(`CREATE INDEX IF NOT EXISTS idx_access_codes_phone ON booking_access_codes(phone, created_at)`)
     console.log('✓ Booking access codes ready')
 
+    // The holiday surcharge, carried on the stay rather than worked out only
+    // when a bill is raised. A stay is quoted, texted about and counted in
+    // "total booked" long before it is billed, and every one of those was
+    // reading a number that didn't include it.
+    //
+    // Kept OUT of total_cost deliberately. total_cost means boarding plus fees
+    // in twenty other places — card captures, special-price comparisons, the
+    // invoice's own line arithmetic — and quietly changing what it means would
+    // break all of them. The bill adds the two together, as it already did.
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS holiday_fee DECIMAL(10,2) DEFAULT 0`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS holiday_note VARCHAR(255)`)
+    await query(`UPDATE stays SET holiday_fee = 0 WHERE holiday_fee IS NULL`)
+    console.log('✓ Stay holiday fee ready')
+
     // Where the "new request" text goes. app_config, not settings: settings
     // stores DECIMAL rates and a phone number is not a number in that sense —
     // it has a leading + and must not be rounded.

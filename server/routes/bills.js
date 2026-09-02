@@ -1,7 +1,7 @@
 import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
-import { holidayChargeForStay } from '../services/holidays.js'
+import { holidayChargeForStay, syncHolidayFee } from '../services/holidays.js'
 import twilio from 'twilio'
 
 const router = express.Router()
@@ -193,6 +193,9 @@ router.post('/', requireAuth, async (req, res) => {
         check_in_date: stay.check_in_date,
         check_out_date: stay.check_out_date,
       })
+      // Keep the stay in step with what the bill just decided, so "total booked"
+      // and the invoice can't disagree about the same stay.
+      await syncHolidayFee(stay.id)
       if (h.count > 0 && h.total > 0) {
         holidayLines.push({ stay, ...h })
         subtotal += h.total

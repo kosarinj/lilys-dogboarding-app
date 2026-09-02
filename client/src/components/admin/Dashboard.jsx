@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { customersAPI, staysAPI, billsAPI } from '../../utils/api'
 import './admin.css'
+import { stayTotal } from '../../utils/stayTotal'
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -85,11 +86,13 @@ function Dashboard() {
       const completedStays = completedStaysData.length
       const cancelledStays = cancelledStaysData.length
 
-      const activeStaysTotal = activeStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
-      const upcomingStaysTotal = upcomingStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
-      const completedStaysTotal = completedStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
-      const cancelledStaysTotal = cancelledStaysData.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
-      const allStaysTotal = stays.reduce((sum, s) => sum + parseFloat(s.total_cost || 0), 0)
+      // stayTotal, not total_cost — the holiday surcharge is a separate column
+      // and summing without it reads low on exactly the busiest weeks.
+      const activeStaysTotal = activeStaysData.reduce((sum, s) => sum + stayTotal(s), 0)
+      const upcomingStaysTotal = upcomingStaysData.reduce((sum, s) => sum + stayTotal(s), 0)
+      const completedStaysTotal = completedStaysData.reduce((sum, s) => sum + stayTotal(s), 0)
+      const cancelledStaysTotal = cancelledStaysData.reduce((sum, s) => sum + stayTotal(s), 0)
+      const allStaysTotal = stays.reduce((sum, s) => sum + stayTotal(s), 0)
 
       // Calculate unpaid bills total
       const unpaidList = bills.filter(b => b.status !== 'paid')
@@ -258,7 +261,7 @@ function Dashboard() {
                     <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
                     <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(s.check_in_date)} – {formatDate(s.check_out_date)}</div>
                   </div>
-                  <span style={{ fontWeight: '600', color: '#27ae60' }}>{formatCurrency(s.total_cost)}</span>
+                  <span style={{ fontWeight: '600', color: '#27ae60' }}>{formatCurrency(stayTotal(s))}</span>
                 </div>
               ))}
             </div>
@@ -273,7 +276,7 @@ function Dashboard() {
                       <div style={{ color: '#2c3e50' }}>{s.dog_name}</div>
                       <div style={{ fontSize: '11px', color: '#95a5a6' }}>{formatDate(s.check_in_date)} – {formatDate(s.check_out_date)}</div>
                     </div>
-                    <span style={{ fontWeight: '600', color: '#3498db' }}>{formatCurrency(s.total_cost)}</span>
+                    <span style={{ fontWeight: '600', color: '#3498db' }}>{formatCurrency(stayTotal(s))}</span>
                   </div>
                 ))}
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
+import { stayTotal } from '../../utils/stayTotal'
 
 /**
  * Requests waiting on Lily.
@@ -142,7 +143,7 @@ export default function BookingRequests() {
       // than the save succeeding — surface it instead of just closing the form.
       setNote(r.data?.paymentWarning
         ? { tone: 'bad', text: `Saved — ${r.data.paymentWarning}` }
-        : { tone: 'ok', text: `Updated. New total $${Number(r.data?.quote?.total_cost || 0).toFixed(2)}.` })
+        : { tone: 'ok', text: `Updated. New total $${(Number(r.data?.quote?.total_cost || 0) + Number(r.data?.quote?.holiday_fee || 0)).toFixed(2)}.` })
       setEditId(null)
       await load()
     } catch (e) {
@@ -193,7 +194,7 @@ export default function BookingRequests() {
     const dates = `${fmt(row.check_in_date)}${row.check_in_time ? ` at ${hhmm(row.check_in_time)}` : ''}` +
       ` through ${fmt(row.check_out_date)}${row.check_out_time ? ` at ${hhmm(row.check_out_time)}` : ''}`
     const first = String(row.customer_name || '').split(' ')[0]
-    const amount = `$${Number(row.total_cost || 0).toFixed(2)}`
+    const amount = `$${stayTotal(row).toFixed(2)}`
     if (row.payment_state === 'captured') {
       return `Hi ${first}, you're all set — ${row.dog_name} is booked in for ${dates}. ` +
         `${amount} paid. Thank you!`
@@ -385,7 +386,7 @@ export default function BookingRequests() {
                   </span>
                   {row.status !== 'cancelled' && (
                     <span style={{ marginLeft: 8, color: '#6c7a89' }}>
-                      ${Number(row.total_cost || 0).toFixed(2)}
+                      ${stayTotal(row).toFixed(2)}
                     </span>
                   )}
                   {row.status !== 'cancelled' && (
@@ -468,7 +469,7 @@ export default function BookingRequests() {
                 )}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, fontSize: 18 }}>{money(row.total_cost)}</div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>{money(stayTotal(row))}</div>
                 <div style={{
                   fontSize: 12, marginTop: 2, fontWeight: 600,
                   color: held ? '#27ae60' : '#b8860b',

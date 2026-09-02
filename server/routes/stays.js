@@ -8,6 +8,20 @@ import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 import { generateBookingCode } from '../utils/bookingCode.js'
 import { toDateStr, todayStr } from '../utils/dates.js'
 import { sendSms, isSmsEnabled } from '../services/sms.js'
+import { syncHolidayFee } from '../services/holidays.js'
+
+/**
+ * What a stay is actually worth.
+ *
+ * total_cost is boarding plus fees; the holiday surcharge is a separate column
+ * because twenty other places rely on total_cost meaning what it always meant.
+ * Every amount shown to anyone, texted to anyone or charged to a card goes
+ * through here, so none of them can quietly leave the surcharge out — which is
+ * exactly what they all used to do.
+ */
+const stayTotal = (stay) =>
+  Number(stay.special_price != null ? stay.special_price : stay.total_cost || 0) +
+  Number(stay.holiday_fee || 0)
 
 const router = express.Router()
 
@@ -236,7 +250,12 @@ router.post('/', async (req, res) => {
       [dog_id, check_in_date, check_out_date, check_in_time || null, check_out_time || null, stay_type || 'boarding', rate_type, days_count, daily_rate, final_total, special_price || null, special_price_comments || null, notes, status, requires_dropoff, requires_pickup, dropoff_fee, pickup_fee, extra_charge || null, extra_charge_comments || null, rover || false, is_puppy || false, puppy_fee]
     )
 
-    res.status(201).json(result.rows[0])
+    // The surcharge follows the dates, so it is worked out here rather than
+    // waiting for a bill — this stay is about to be shown, texted about and
+    // counted, and all three need the real number.
+    const created = result.rows[0]
+    created.holiday_fee = await syncHolidayFee(created.id)
+    res.status(201).json(created)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -362,7 +381,10 @@ router.put('/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Stay not found' })
     }
-    res.json(result.rows[0])
+    // Dates may have moved on or off a holiday.
+    const updated = result.rows[0]
+    updated.holiday_fee = await syncHolidayFee(updated.id)
+    res.json(updated)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -459,7 +481,7 @@ router.post('/:id/payment-link', async (req, res) => {
       return res.status(400).json({ error: 'Approve this request first, then send a payment link.' })
     }
 
-    const total = Number(stay.special_price != null ? stay.special_price : stay.total_cost)
+    const total = stayTotal(stay)
 
     let code = generateBookingCode()
     for (let i = 0; i < 5; i++) {
@@ -604,7 +626,8 @@ router.patch('/requests/:id', async (req, res) => {
       days_count, priced.daily_rate, priced.total_cost,
     ])
 
-    res.json({ success: true, quote: priced, paymentWarning })
+    const holiday_fee = await syncHolidayFee(id)
+    res.json({ success: true, quote: { ...priced, holiday_fee }, paymentWarning })
   } catch (e) {
     console.error('Edit request error:', e.message)
     res.status(500).json({ error: e.message })
@@ -628,12 +651,13 @@ router.post('/requests/:id/approve', async (req, res) => {
         // she trimmed the request. Never higher — Stripe refuses, and the edit
         // endpoint has already warned her.
         const held = await getAuthorizedAmount(stay.payment_intent_id)
-        const take = Math.min(Number(stay.total_cost), held)
+        const owed = stayTotal(stay)
+        const take = Math.min(owed, held)
         await capturePaymentIntent(stay.payment_intent_id, take)
         await query(`UPDATE stays SET payment_state = 'captured' WHERE id = $1`, [id])
         paymentNote = `Charged $${take.toFixed(2)}.`
-        if (Number(stay.total_cost) > held + 0.005) {
-          paymentNote += ` $${(Number(stay.total_cost) - held).toFixed(2)} still owing — send a payment link.`
+        if (owed > held + 0.005) {
+          paymentNote += ` $${(owed - held).toFixed(2)} still owing — send a payment link.`
         }
       } catch (e) {
         await query(`UPDATE stays SET payment_state = 'expired' WHERE id = $1`, [id])
@@ -703,7 +727,8 @@ router.post('/requests/:id/approve', async (req, res) => {
  * The same text goes out by SMS and sits behind the copy button, so they can't
  * drift into saying different things about the same booking.
  */
-function confirmationText({ customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, total_cost, payment_state }) {
+function confirmationText(stay) {
+  const { customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, payment_state } = stay
   const t = (v) => {
     if (!v) return ''
     const [h, m] = String(v).split(':').map(Number)
@@ -718,7 +743,7 @@ function confirmationText({ customer_name, dog_name, check_in_date, check_out_da
   }
   const first = String(customer_name || '').split(' ')[0]
   const dates = `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}`
-  const amount = `$${Number(total_cost || 0).toFixed(2)}`
+  const amount = `$${stayTotal(stay).toFixed(2)}`
 
   // A card was authorised at request time and captured on approval, so the
   // money is already in. Telling this customer to Venmo would be asking to be
@@ -869,7 +894,7 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
     `, [id, method || null])
 
     const full = await query(`
-      SELECT s.total_cost, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      SELECT s.total_cost, s.holiday_fee, s.special_price, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
       FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
       WHERE s.id = $1
     `, [id])
@@ -877,7 +902,7 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
     const sms = row ? await sendSms(
       row.customer_phone,
       `Thanks ${String(row.customer_name || '').split(' ')[0]}! Payment of ` +
-      `$${Number(row.total_cost || 0).toFixed(2)} received for ${row.dog_name}. ` +
+      `$${stayTotal(row).toFixed(2)} received for ${row.dog_name}. ` +
       `You're all confirmed. — Lily's Dog Boarding`
     ) : { sent: false, reason: 'Stay not found' }
 
