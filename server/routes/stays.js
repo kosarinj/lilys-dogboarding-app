@@ -8,20 +8,24 @@ import { quoteStay, getPartialDayAddition } from '../services/pricing.js'
 import { generateBookingCode } from '../utils/bookingCode.js'
 import { toDateStr, todayStr } from '../utils/dates.js'
 import { sendSms, isSmsEnabled } from '../services/sms.js'
-import { syncHolidayFee } from '../services/holidays.js'
+import { syncHolidayFee, holidayChargeForStay } from '../services/holidays.js'
 
 /**
  * What a stay is actually worth.
  *
- * total_cost is boarding plus fees; the holiday surcharge is a separate column
- * because twenty other places rely on total_cost meaning what it always meant.
- * Every amount shown to anyone, texted to anyone or charged to a card goes
- * through here, so none of them can quietly leave the surcharge out — which is
- * exactly what they all used to do.
+ * total_cost is already the settled figure — boarding (or the special price
+ * that replaced it) plus fees, less any Rover discount. special_price is the
+ * boarding portion alone, so reading it in preference dropped the delivery fees
+ * and the discount; total_cost is the only correct base.
+ *
+ * The holiday surcharge is a separate column because twenty other places rely
+ * on total_cost meaning what it always meant, so it is added on here. Every
+ * amount shown to anyone, texted to anyone or charged to a card goes through
+ * this, so none of them can quietly leave the surcharge out — which is exactly
+ * what they all used to do.
  */
 const stayTotal = (stay) =>
-  Number(stay.special_price != null ? stay.special_price : stay.total_cost || 0) +
-  Number(stay.holiday_fee || 0)
+  Number(stay.total_cost || 0) + Number(stay.holiday_fee || 0)
 
 const router = express.Router()
 
@@ -592,6 +596,13 @@ router.patch('/requests/:id', async (req, res) => {
       requires_dropoff: !!requires_dropoff, requires_pickup: !!requires_pickup,
     })
 
+    // The new dates can move which nights are holidays, so the surcharge is
+    // part of what these dates now cost. Comparing the hold against boarding
+    // alone understated the shortfall by exactly the amount most likely to
+    // cause one.
+    const holiday = await holidayChargeForStay({ check_in_date, check_out_date })
+    const owed = priced.total_cost + holiday.total
+
     // A held card caps what can ever be collected — Stripe won't capture above
     // the authorization. Say so plainly rather than letting her approve and
     // discover the shortfall afterwards.
@@ -599,12 +610,12 @@ router.patch('/requests/:id', async (req, res) => {
     if (stay.payment_intent_id && stay.payment_state === 'authorized') {
       try {
         const held = await getAuthorizedAmount(stay.payment_intent_id)
-        if (priced.total_cost > held + 0.005) {
+        if (owed > held + 0.005) {
           paymentWarning =
             `Only ${held.toFixed(2)} is held. Approving takes that amount; ` +
-            `the extra ${(priced.total_cost - held).toFixed(2)} needs billing separately.`
-        } else if (priced.total_cost < held - 0.005) {
-          paymentWarning = `Only ${priced.total_cost.toFixed(2)} of the ${held.toFixed(2)} hold will be taken.`
+            `the extra ${(owed - held).toFixed(2)} needs billing separately.`
+        } else if (owed < held - 0.005) {
+          paymentWarning = `Only ${owed.toFixed(2)} of the ${held.toFixed(2)} hold will be taken.`
         }
       } catch (e) {
         paymentWarning = `Could not read the card hold: ${e.message}`

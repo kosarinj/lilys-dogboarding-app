@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import PayButtons from '../components/shared/PayButtons'
+import { stayTotal } from '../utils/stayTotal'
 
 /**
  * Customer booking page, reached by a link Lily hands out.
@@ -157,7 +158,17 @@ export default function BookingPage() {
           {data.upcoming.map(s => (
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between',
                                      alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 14 }}>
-              <span>{s.dog_name} · {fmt(s.check_in_date)} – {fmt(s.check_out_date)}</span>
+              <div>
+                {s.dog_name} · {fmt(s.check_in_date)} – {fmt(s.check_out_date)}
+                {/* The amount, and what the holiday part of it is for. She
+                    should never have to explain a number the page could name. */}
+                <span style={{ color: '#6c7a89' }}> · {money(stayTotal(s))}</span>
+                {Number(s.holiday_fee || 0) > 0 && (
+                  <div style={{ fontSize: 12, color: '#6c7a89' }}>
+                    includes {money(s.holiday_fee)} holiday{s.holiday_note ? ` — ${s.holiday_note}` : ''}
+                  </div>
+                )}
+              </div>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{
                   fontWeight: 600,
@@ -199,7 +210,7 @@ export default function BookingPage() {
               </div>
               <PayButtons
                 amount={data.upcoming.filter(s => s.status !== 'requested' && !s.paid)
-                  .reduce((t, s) => t + Number(s.total_cost || 0), 0)}
+                  .reduce((t, s) => t + stayTotal(s), 0)}
                 note="Dog boarding"
                 compact
               />

@@ -1,6 +1,7 @@
 import { query } from './models/db.js'
 import { generateBookingCode } from './utils/bookingCode.js'
 import { holidaysForYears } from './utils/usHolidays.js'
+import { syncHolidayFee } from './services/holidays.js'
 
 export async function runMigrations() {
   console.log('Running database migrations...')
@@ -391,6 +392,60 @@ export async function runMigrations() {
     await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS holiday_fee DECIMAL(10,2) DEFAULT 0`)
     await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS holiday_note VARCHAR(255)`)
     await query(`UPDATE stays SET holiday_fee = 0 WHERE holiday_fee IS NULL`)
+
+    // Data repair, so it gets its own guard — the migrations below are
+    // schema and must still run if a stay in here has something odd about it.
+    try {
+      // Backfill. Adding the column defaulted every stay that already existed to
+      // zero, and nothing rewrites a stay that is never edited again — so the
+      // surcharge showed up on invoices, which work it out from the calendar when
+      // the bill is raised, and nowhere else. Every stay-level total read low.
+      //
+      // Two sources, because they carry different authority. A stay that has been
+      // billed has an agreed price: take it from the bill's own holiday lines, so
+      // the stay can only ever agree with the invoice the customer was sent.
+      const billed = await query(`
+        SELECT bi.stay_id,
+               SUM(bi.total_price) AS total,
+               STRING_AGG(bi.description, '; ') AS descriptions
+        FROM bill_items bi
+        JOIN stays s ON s.id = bi.stay_id
+        WHERE bi.item_type = 'holiday' AND COALESCE(s.holiday_fee, 0) = 0
+        GROUP BY bi.stay_id
+      `)
+      for (const row of billed.rows) {
+        const note = String(row.descriptions || '')
+          .replace(/Holiday surcharge\s*[—-]\s*/g, '') || null
+        await query(
+          `UPDATE stays SET holiday_fee = $2, holiday_note = $3 WHERE id = $1`,
+          [row.stay_id, row.total, note]
+        )
+      }
+
+      // An unbilled stay has no agreed price yet, so the calendar decides. Scoped
+      // to stays that actually touch a holiday night — check-in up to but not
+      // including check-out, the same rule the surcharge itself uses — so this is
+      // one cheap query on every boot after the first rather than a full re-price.
+      const unpriced = await query(`
+        SELECT s.id FROM stays s
+        WHERE COALESCE(s.holiday_fee, 0) = 0
+          AND s.status <> 'cancelled'
+          AND s.id NOT IN (SELECT stay_id FROM bill_items WHERE stay_id IS NOT NULL)
+          AND EXISTS (
+            SELECT 1 FROM holidays h
+            WHERE h.enabled = true
+              AND h.holiday_date >= s.check_in_date
+              AND h.holiday_date <= GREATEST(s.check_in_date, s.check_out_date - 1)
+          )
+      `)
+      for (const row of unpriced.rows) await syncHolidayFee(row.id)
+
+      const backfilled = billed.rows.length + unpriced.rows.length
+      if (backfilled) console.log(`✓ Backfilled holiday surcharge on ${backfilled} stay(s)`)
+    } catch (e) {
+      console.error('Holiday surcharge backfill skipped:', e.message)
+    }
+
     console.log('✓ Stay holiday fee ready')
 
     // Where the "new request" text goes. app_config, not settings: settings

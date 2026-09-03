@@ -54,6 +54,7 @@ router.get('/:code', async (req, res) => {
 
     const upcoming = await query(`
       SELECT s.id, s.check_in_date, s.check_out_date, s.status, s.total_cost, s.payment_state,
+             s.holiday_fee, s.holiday_note,
              (s.payment_state IN ('paid', 'captured')) AS paid,
              d.name AS dog_name
       FROM stays s JOIN dogs d ON s.dog_id = d.id
@@ -142,7 +143,10 @@ router.post('/:code/request', async (req, res) => {
       quote.stay_type, quote.rate_type,
       quote.requires_dropoff, quote.requires_pickup, quote.dropoff_fee, quote.pickup_fee,
       quote.days_count, quote.daily_rate, quote.total_cost,
-      notes ? String(notes).slice(0, 1000) : null, quote.total_cost,
+      // quoted_total is the number the customer saw and the card was held
+      // against, which is the grand total — surcharge included. Storing
+      // total_cost here recorded a quote nobody was ever given.
+      notes ? String(notes).slice(0, 1000) : null, quote.grand_total,
     ])
     const stayId = stay.rows[0].id
     await syncHolidayFee(stayId)
