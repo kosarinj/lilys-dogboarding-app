@@ -654,9 +654,15 @@ function InvoiceView({ bill, onClose }) {
             </div>
             {/* The headline states the rule; this says what it costs the customer to
                 ignore it — the reservation is not held until the payment arrives. */}
-            <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '16px' }}>
+            <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.7', marginBottom: '10px' }}>
               Please don’t forget to make your payment in order to secure your dog’s boarding
               or daycare reservation 🐾
+            </div>
+            {/* And the line that settles it. “Secure your reservation” is an
+                instruction; this is the actual rule, so nobody arrives believing a
+                booking she hasn’t been paid for was already held for them. */}
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#2c3e50', lineHeight: '1.7', marginBottom: '16px' }}>
+              Your reservation is considered confirmed once payment has been received.
             </div>
             <div style={{ fontSize: '14px', color: '#2c3e50', lineHeight: '1.8' }}>
               <div><strong>Cash:</strong> Accepted</div>
