@@ -128,4 +128,85 @@ router.post('/migrate', async (req, res) => {
   }
 })
 
+/**
+ * A dog's photo gallery.
+ *
+ * Separate from dogs.photo_url, which is the avatar and stays the avatar. These
+ * are the extra pictures, and the starred ones are what that dog's owner sees
+ * on their own booking page — which is the whole point of starring them, so the
+ * flag is per photo rather than a count Lily has to keep in her head.
+ *
+ * Routes are mounted under /api/dogs, so they inherit requireAuth. Only Lily
+ * uploads, stars or deletes; customers only ever read, and they read through
+ * the booking payload, which is scoped to their own dogs.
+ */
+
+// GET /api/dogs/:id/photos
+router.get('/:id/photos', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, dog_id, url, caption, in_collage, sort_order, created_at
+       FROM dog_photos WHERE dog_id = $1
+       ORDER BY sort_order, id`,
+      [req.params.id]
+    )
+    res.json(result.rows)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST /api/dogs/:id/photos
+router.post('/:id/photos', async (req, res) => {
+  try {
+    const { url, caption } = req.body
+    if (!url) return res.status(400).json({ error: 'A photo URL is required' })
+
+    // New photos go to the end of the gallery, and are starred to begin with.
+    // She has just chosen to upload this picture of this dog; making her then
+    // find it and tick it as well is a second decision for the same intent.
+    const next = await query(
+      `SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM dog_photos WHERE dog_id = $1`,
+      [req.params.id]
+    )
+    const result = await query(
+      `INSERT INTO dog_photos (dog_id, url, caption, in_collage, sort_order)
+       VALUES ($1, $2, $3, true, $4) RETURNING *`,
+      [req.params.id, url, caption || null, next.rows[0].n]
+    )
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// PATCH /api/dogs/photos/:photoId — star it, unstar it, or retitle it.
+router.patch('/photos/:photoId', async (req, res) => {
+  try {
+    const { in_collage, caption } = req.body
+    const result = await query(
+      `UPDATE dog_photos
+       SET in_collage = COALESCE($2, in_collage),
+           caption = COALESCE($3, caption)
+       WHERE id = $1 RETURNING *`,
+      [req.params.photoId, in_collage === undefined ? null : !!in_collage, caption ?? null]
+    )
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Photo not found' })
+    res.json(result.rows[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// DELETE /api/dogs/photos/:photoId
+router.delete('/photos/:photoId', async (req, res) => {
+  try {
+    const result = await query(`DELETE FROM dog_photos WHERE id = $1 RETURNING id`, [req.params.photoId])
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Photo not found' })
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 export default router

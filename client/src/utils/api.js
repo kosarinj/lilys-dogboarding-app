@@ -59,7 +59,14 @@ export const dogsAPI = {
   create: (data) => api.post('/dogs', data),
   update: (id, data) => api.put(`/dogs/${id}`, data),
   delete: (id) => api.delete(`/dogs/${id}`),
-  migrate: () => api.post('/dogs/migrate')
+  migrate: () => api.post('/dogs/migrate'),
+
+  // A dog's photo gallery. The starred ones are what that dog's owner sees on
+  // their own booking page.
+  listPhotos: (dogId) => api.get(`/dogs/${dogId}/photos`),
+  addPhoto: (dogId, data) => api.post(`/dogs/${dogId}/photos`, data),
+  updatePhoto: (photoId, data) => api.patch(`/dogs/photos/${photoId}`, data),
+  deletePhoto: (photoId) => api.delete(`/dogs/photos/${photoId}`)
 }
 
 // Rates API

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import PayButtons from '../components/shared/PayButtons'
 import { stayTotal } from '../utils/stayTotal'
+import DogCollage from '../components/shared/DogCollage'
 
 /**
  * Customer booking page, reached by a link Lily hands out.
@@ -221,6 +222,14 @@ export default function BookingPage() {
 
       <section style={card}>
         <h2 style={h2}>New request</h2>
+
+        {/* Their dogs, before the form. They came here to book for a specific
+            animal, and seeing it is a better reminder of that than a dropdown
+            of names. Renders nothing until Lily has starred a photo. */}
+        <DogCollage
+          photos={data.collage || []}
+          names={[...new Set((data.collage || []).map(p => p.dog_name))]}
+        />
 
         {bookable.length === 0 ? (
           <p style={{ fontSize: 14, color: '#c0392b' }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { dogsAPI, customersAPI, uploadAPI } from '../../utils/api'
+import DogPhotos from './DogPhotos'
 import './admin.css'
 
 function DogsManager() {
@@ -28,6 +29,8 @@ function DogsManager() {
   })
   const [uploading, setUploading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // Which dog's gallery is open. One at a time, in place, like the edit form.
+  const [photosFor, setPhotosFor] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -240,6 +243,10 @@ function DogsManager() {
         <div className="error-state" style={{ background: '#fff4e6', border: '1px solid #ffe0b2', color: '#e67e22' }}>
           ⚠️ Please add customers first before adding dogs.
         </div>
+      )}
+
+      {photosFor && (
+        <DogPhotos dog={photosFor} onClose={() => setPhotosFor(null)} />
       )}
 
       {showForm && (
@@ -557,6 +564,12 @@ function DogsManager() {
                   <td>
                     <button onClick={() => handleEdit(dog)} className="btn btn-edit">
                       Edit
+                    </button>
+                    <button
+                      onClick={() => { setPhotosFor(dog); setShowForm(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                      className="btn btn-secondary"
+                    >
+                      Photos
                     </button>
                     <button onClick={() => handleDelete(dog.id)} className="btn btn-delete">
                       Delete

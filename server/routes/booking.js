@@ -63,10 +63,24 @@ router.get('/:code', async (req, res) => {
       ORDER BY s.check_in_date
     `, [customer.id])
 
+    // Their own dogs, and only the pictures Lily starred. This is why the
+    // collage lives behind the code rather than on the page that asks for it:
+    // before the code we don't know who is looking, and a stranger's dogs are
+    // decoration. After it, these are their dogs — which is the whole point.
+    const collage = await query(`
+      SELECT p.url, p.caption, d.name AS dog_name
+      FROM dog_photos p
+      JOIN dogs d ON d.id = p.dog_id
+      WHERE d.customer_id = $1 AND p.in_collage = true
+      ORDER BY d.name, p.sort_order, p.id
+      LIMIT 12
+    `, [customer.id])
+
     res.json({
       customer: { name: customer.name, email: customer.email, phone: customer.phone },
       dogs,
       upcoming: upcoming.rows,
+      collage: collage.rows,
       rules: { maxPerNight: rules.maxPerNight },
       cardPayments: isStripeEnabled(),
     })

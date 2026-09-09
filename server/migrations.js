@@ -453,6 +453,46 @@ export async function runMigrations() {
     // it has a leading + and must not be rounded.
     await query(`CREATE TABLE IF NOT EXISTS app_config (key VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)`)
 
+    // Photos of a dog, beyond the one that identifies it in a list.
+    //
+    // dogs.photo_url stays exactly what it was — the avatar, read in a dozen
+    // places — because this is an addition, not a replacement. These are the
+    // extra pictures Lily takes while a dog is staying, and the starred ones
+    // are what that dog's owner sees on their own booking page.
+    await query(`
+      CREATE TABLE IF NOT EXISTS dog_photos (
+        id SERIAL PRIMARY KEY,
+        dog_id INTEGER NOT NULL REFERENCES dogs(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        caption VARCHAR(120),
+        in_collage BOOLEAN DEFAULT false,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await query(`CREATE INDEX IF NOT EXISTS idx_dog_photos_dog ON dog_photos(dog_id, sort_order, id)`)
+
+    // Seed each dog's existing avatar into its gallery, once, so the first
+    // thing she opens isn't empty. Marked in app_config rather than inferred
+    // from the table being empty: a dog whose photos she has since deleted
+    // should stay deleted, not have the avatar quietly reappear on every boot.
+    const seeded = await query(`SELECT value FROM app_config WHERE key = 'dog_photos_seeded'`)
+    if (seeded.rows.length === 0) {
+      const r = await query(`
+        INSERT INTO dog_photos (dog_id, url, in_collage)
+        SELECT d.id, d.photo_url, true
+        FROM dogs d
+        WHERE d.photo_url IS NOT NULL AND d.photo_url <> ''
+      `)
+      await query(
+        `INSERT INTO app_config (key, value) VALUES ('dog_photos_seeded', $1)
+         ON CONFLICT (key) DO NOTHING`,
+        [new Date().toISOString()]
+      )
+      if (r.rowCount) console.log(`✓ Seeded ${r.rowCount} dog photo(s) from existing avatars`)
+    }
+    console.log('✓ Dog photos ready')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
