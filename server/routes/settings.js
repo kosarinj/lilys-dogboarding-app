@@ -124,6 +124,16 @@ router.get('/sms/status', requireAuth, (req, res) => {
       apiKeySet: !!process.env.VONAGE_API_KEY,
       apiSecretSet: !!process.env.VONAGE_API_SECRET,
       fromNumber: vFrom,
+      // The commonest cause of a Vonage rejection that says nothing useful.
+      // A US sender must be the full 11 digits — 12035550142, not 2035550142
+      // and not +1 203 555 0142 — and an alphanumeric sender id ("LILYS") is
+      // never delivered to a US number, however valid it looks.
+      fromLooksValid: !!vFrom && /^[+]?1\d{10}$/.test(String(vFrom).replace(/[^\d+]/g, '')),
+      fromNote: !vFrom ? 'Not set.'
+        : /^[+]?1\d{10}$/.test(String(vFrom).replace(/[^\d+]/g, '')) ? null
+        : /^\d{10}$/.test(String(vFrom).replace(/\D/g, ''))
+          ? 'Missing the country code — Vonage wants 1 in front, e.g. 1' + String(vFrom).replace(/\D/g, '') + '.'
+          : 'Not an 11-digit US number. Alphanumeric sender IDs are never delivered to US numbers.',
     },
     twilio: {
       accountSid: process.env.TWILIO_ACCOUNT_SID
