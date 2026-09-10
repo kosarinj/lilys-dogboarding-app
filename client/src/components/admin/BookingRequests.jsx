@@ -268,6 +268,13 @@ export default function BookingRequests() {
 
   if (loading) return <div style={{ padding: 20, color: '#6c7a89' }}>Loading requests…</div>
 
+  // Whichever provider is actually in use — reading Twilio's sender while
+  // Vonage is the one sending would point at the wrong number entirely.
+  const senderNumber = smsStatus?.provider === 'vonage'
+    ? smsStatus?.vonage?.fromNumber
+    : smsStatus?.twilio?.fromNumber
+  const senderNote = smsStatus?.provider === 'vonage' ? smsStatus?.vonage?.fromNote : null
+
   return (
     <div style={{ padding: '4px 0' }}>
       <h1 style={{ fontSize: 22, margin: '0 0 4px' }}>Booking requests</h1>
@@ -286,11 +293,26 @@ export default function BookingRequests() {
               : "⚠ Texting off — approvals won't text, use Copy message"}
           </span>
         )}
+        {/* The number texts are sent FROM. "Texting on" only means credentials
+            are present; a sender the carrier refuses fails every send with an
+            error that never names the number, so the number is shown. */}
+        {smsStatus?.enabled && senderNumber && (
+          <span style={{ color: '#6c7a89' }}>
+            from <strong>{senderNumber}</strong>
+          </span>
+        )}
         <button onClick={testText} disabled={testing}
           style={{ ...smallBtn, background: '#2980b9' }}>
           {testing ? 'Sending…' : 'Send test text'}
         </button>
       </div>
+
+      {senderNote && (
+        <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', color: '#a4353a',
+                      borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12.5 }}>
+          <strong>Sender number problem.</strong> {senderNote}
+        </div>
+      )}
 
       {/* The link she hands out, and where the alert about it lands. Both live
           here rather than in a settings screen because this is the page she is
