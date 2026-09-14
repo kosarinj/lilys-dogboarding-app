@@ -464,72 +464,64 @@ router.post('/migrate', async (req, res) => {
 router.post('/:id/payment-link', async (req, res) => {
   try {
     const { id } = req.params
-    const stayResult = await query(`SELECT status FROM stays WHERE id = $1`, [id])
+
+    const existing = await query(`
+      SELECT b.bill_code FROM bill_items bi JOIN bills b ON bi.bill_id = b.id
+      WHERE bi.stay_id = $1 AND b.status <> 'cancelled' LIMIT 1
+    `, [id])
+    if (existing.rows.length > 0) {
+      return res.json({ billCode: existing.rows[0].bill_code, link: billLink(existing.rows[0].bill_code), reused: true })
+    }
+
+    const stayResult = await query(`
+      SELECT s.*, d.name AS dog_name, d.customer_id, c.name AS customer_name
+      FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
+      WHERE s.id = $1
+    `, [id])
     if (stayResult.rows.length === 0) return res.status(404).json({ error: 'Stay not found' })
-    if (stayResult.rows[0].status === 'requested') {
+    const stay = stayResult.rows[0]
+
+    if (stay.status === 'requested') {
       return res.status(400).json({ error: 'Approve this request first, then send a payment link.' })
     }
 
-    const bill = await ensureBillForStay(id)
-    res.json({ billCode: bill.bill_code, link: billLink(bill.bill_code), reused: bill.reused })
+    const total = stayTotal(stay)
+
+    let code = generateBookingCode()
+    for (let i = 0; i < 5; i++) {
+      const clash = await query('SELECT id FROM bills WHERE bill_code = $1', [code])
+      if (clash.rows.length === 0) break
+      code = generateBookingCode()
+    }
+
+    const bill = await query(`
+      INSERT INTO bills (customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, paid_amount, status, notes)
+      VALUES ($1, $2, CURRENT_DATE, $3, $4, 0, $4, 0, 'sent', $5)
+      RETURNING id, bill_code
+    `, [
+      stay.customer_id, code,
+      toDateStr(stay.check_in_date),   // due before the stay starts — the point is paying up front
+      total,
+      `Advance payment for ${stay.dog_name}`,
+    ])
+
+    await query(`
+      INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      bill.rows[0].id, stay.id,
+      `${stay.dog_name} — ${toDateStr(stay.check_in_date)} to ${toDateStr(stay.check_out_date)}`,
+      Math.max(1, Math.ceil(Number(stay.days_count) || 1)),
+      Number(stay.daily_rate) || total,
+      total,
+    ])
+
+    res.json({ billCode: bill.rows[0].bill_code, link: billLink(bill.rows[0].bill_code), reused: false })
   } catch (e) {
     console.error('Payment link error:', e.message)
     res.status(500).json({ error: e.message })
   }
 })
-
-/**
- * The stay's invoice — the one it's already on, or a new one.
- *
- * Shared by the payment link and by mark-paid, so a stay that gets a payment
- * link and is later marked paid ends up with one invoice, not two.
- */
-async function ensureBillForStay(id) {
-  const existing = await query(`
-    SELECT b.id, b.bill_code FROM bill_items bi JOIN bills b ON bi.bill_id = b.id
-    WHERE bi.stay_id = $1 AND b.status <> 'cancelled' LIMIT 1
-  `, [id])
-  if (existing.rows.length > 0) return { ...existing.rows[0], reused: true }
-
-  const stayResult = await query(`
-    SELECT s.*, d.name AS dog_name, d.customer_id
-    FROM stays s JOIN dogs d ON s.dog_id = d.id
-    WHERE s.id = $1
-  `, [id])
-  const stay = stayResult.rows[0]
-  const total = stayTotal(stay)
-
-  let code = generateBookingCode()
-  for (let i = 0; i < 5; i++) {
-    const clash = await query('SELECT id FROM bills WHERE bill_code = $1', [code])
-    if (clash.rows.length === 0) break
-    code = generateBookingCode()
-  }
-
-  const bill = await query(`
-    INSERT INTO bills (customer_id, bill_code, bill_date, due_date, subtotal, tax, total_amount, paid_amount, status, notes)
-    VALUES ($1, $2, CURRENT_DATE, $3, $4, 0, $4, 0, 'sent', $5)
-    RETURNING id, bill_code
-  `, [
-    stay.customer_id, code,
-    toDateStr(stay.check_in_date),   // due before the stay starts — the point is paying up front
-    total,
-    `Advance payment for ${stay.dog_name}`,
-  ])
-
-  await query(`
-    INSERT INTO bill_items (bill_id, stay_id, description, quantity, unit_price, total_price)
-    VALUES ($1, $2, $3, $4, $5, $6)
-  `, [
-    bill.rows[0].id, stay.id,
-    `${stay.dog_name} — ${toDateStr(stay.check_in_date)} to ${toDateStr(stay.check_out_date)}`,
-    Math.max(1, Math.ceil(Number(stay.days_count) || 1)),
-    Number(stay.daily_rate) || total,
-    total,
-  ])
-
-  return { ...bill.rows[0], reused: false }
-}
 
 const billLink = (code) =>
   `${process.env.CLIENT_URL || process.env.PUBLIC_URL || 'http://localhost:5173'}/bill/${code}`
@@ -747,9 +739,21 @@ router.post('/requests/:id/approve', async (req, res) => {
  * drift into saying different things about the same booking.
  */
 function confirmationText(stay) {
-  const { customer_name, dog_name, payment_state } = stay
+  const { customer_name, dog_name, check_in_date, check_out_date, check_in_time, check_out_time, payment_state } = stay
+  const t = (v) => {
+    if (!v) return ''
+    const [h, m] = String(v).split(':').map(Number)
+    if (!Number.isFinite(h)) return ''
+    const ap = h >= 12 ? 'pm' : 'am'
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return m ? ` at ${h12}:${String(m).padStart(2, '0')}${ap}` : ` at ${h12}${ap}`
+  }
+  const d = (v) => {
+    const [y, mo, dd] = toDateStr(v).split('-')
+    return `${Number(mo)}/${Number(dd)}`
+  }
   const first = String(customer_name || '').split(' ')[0]
-  const dates = stayDates(stay)
+  const dates = `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}`
   const amount = `$${stayTotal(stay).toFixed(2)}`
 
   // A card was authorised at request time and captured on approval, so the
@@ -768,36 +772,6 @@ function confirmationText(stay) {
   return `Hi ${first}, Lily has approved your request for ${dog_name}, ${dates}. ` +
     `Total ${amount}. Your booking is confirmed once payment is received — ` +
     `Venmo @lilykos or Zelle lilykos@me.com. Thank you! — Lily's Dog Boarding`
-}
-
-/** "9/20 at 9am through 9/24 at 5pm" */
-function stayDates({ check_in_date, check_out_date, check_in_time, check_out_time }) {
-  const t = (v) => {
-    if (!v) return ''
-    const [h, m] = String(v).split(':').map(Number)
-    if (!Number.isFinite(h)) return ''
-    const ap = h >= 12 ? 'pm' : 'am'
-    const h12 = h % 12 === 0 ? 12 : h % 12
-    return m ? ` at ${h12}:${String(m).padStart(2, '0')}${ap}` : ` at ${h12}${ap}`
-  }
-  const d = (v) => {
-    const [, mo, dd] = toDateStr(v).split('-')
-    return `${Number(mo)}/${Number(dd)}`
-  }
-  return `${d(check_in_date)}${t(check_in_time)} through ${d(check_out_date)}${t(check_out_time)}`
-}
-
-/**
- * The paid-and-confirmed wording. This is the moment the booking actually
- * becomes confirmed, so it's the text that says so — with the invoice attached
- * as their receipt. Returned to the screen as well as texted, so while texting
- * is off she can copy exactly this and send it herself.
- */
-function paidText(stay, link) {
-  const first = String(stay.customer_name || '').split(' ')[0]
-  return `Hi ${first}, you're all set — your reservation for ${stay.dog_name}, ` +
-    `${stayDates(stay)}, is confirmed. Payment of $${stayTotal(stay).toFixed(2)} received. ` +
-    `Your invoice: ${link} Thank you! — Lily's Dog Boarding`
 }
 
 /**
@@ -930,31 +904,20 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
       WHERE id = $1
     `, [id, method || null])
 
-    // The invoice is their receipt. Reuses one a payment link already raised.
-    const bill = await ensureBillForStay(id)
-    await query(`
-      UPDATE bills SET status = 'paid', paid_amount = total_amount, payment_method = $2,
-             updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-    `, [bill.id, method || null])
-    const link = billLink(bill.bill_code)
-
     const full = await query(`
-      SELECT s.*, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      SELECT s.total_cost, s.holiday_fee, s.special_price, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
       FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
       WHERE s.id = $1
     `, [id])
     const row = full.rows[0]
-    const message = paidText(row, link)
-    const sms = await sendSms(row.customer_phone, message)
-    if (sms.sent) {
-      await query(
-        `UPDATE stays SET notified_at = CURRENT_TIMESTAMP, notified_via = 'sms' WHERE id = $1`,
-        [id]
-      )
-    }
+    const sms = row ? await sendSms(
+      row.customer_phone,
+      `Thanks ${String(row.customer_name || '').split(' ')[0]}! Payment of ` +
+      `$${stayTotal(row).toFixed(2)} received for ${row.dog_name}. ` +
+      `You're all confirmed. — Lily's Dog Boarding`
+    ) : { sent: false, reason: 'Stay not found' }
 
-    res.json({ success: true, sms, message, link, billCode: bill.bill_code })
+    res.json({ success: true, sms })
   } catch (e) {
     console.error('Mark paid error:', e.message)
     res.status(500).json({ error: e.message })
@@ -968,14 +931,6 @@ router.post('/requests/:id/unmark-paid', async (req, res) => {
       `UPDATE stays SET payment_state = 'awaiting', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [req.params.id]
     )
-    // Put the invoice back to unpaid too — but not one a real card payment
-    // settled, which this undo button knows nothing about.
-    await query(`
-      UPDATE bills b SET status = 'sent', paid_amount = 0, updated_at = CURRENT_TIMESTAMP
-      FROM bill_items bi
-      WHERE bi.bill_id = b.id AND bi.stay_id = $1 AND b.status = 'paid'
-        AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.bill_id = b.id AND p.status = 'succeeded')
-    `, [req.params.id])
     res.json({ success: true })
   } catch (e) {
     res.status(500).json({ error: e.message })

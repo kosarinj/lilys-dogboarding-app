@@ -206,8 +206,8 @@ export default function BookingRequests() {
 
   // Copying is only ever done in order to send, so it records that the customer
   // was told. Undoable from the row, since a copy isn't proof she actually sent.
-  const copyMessage = async (row, preset) => {
-    const text = preset || confirmMessage(row)
+  const copyMessage = async (row) => {
+    const text = confirmMessage(row)
     try { await navigator.clipboard.writeText(text) }
     catch { window.prompt('Copy this message:', text) }
     try { await api.post(`/stays/requests/${row.id}/notified`, { via: 'manual' }) } catch { /* copy still worked */ }
@@ -228,15 +228,12 @@ export default function BookingRequests() {
     setBusyId(row.id)
     try {
       const r = await api.post(`/stays/requests/${row.id}/mark-paid`, { method })
-      // Marking paid raises the invoice and writes the "you're all set" text.
-      // While texting is off, that exact text comes back to be copied and sent.
       const sms = r.data?.sms
-      setNote(sms?.sent
-        ? { tone: 'ok', text: `${row.dog_name} marked paid — confirmed. Invoice ${r.data.billCode} texted to ${sms.to}.` }
-        : { tone: 'ok',
-            text: `${row.dog_name} marked paid — confirmed. Invoice ${r.data?.billCode} created. ` +
-              `Text didn't send (${sms?.reason || 'texting off'}) — copy it and send it yourself.`,
-            msgFor: row, msgText: r.data?.message })
+      setNote({
+        tone: 'ok',
+        text: `${row.dog_name} marked paid — now confirmed.` +
+          (sms?.sent ? ' Receipt texted.' : ` (No receipt text: ${sms?.reason || 'texting off'}.)`),
+      })
       await load()
     } catch (e) {
       setNote({ tone: 'bad', text: e.response?.data?.error || 'Could not mark paid' })
@@ -370,14 +367,8 @@ export default function BookingRequests() {
       {note && (
         <Msg tone={note.tone}>
           {note.text}
-          {note.msgText && (
-            <div style={{ marginTop: 8, padding: '8px 10px', background: '#fff', borderRadius: 5,
-                          border: '1px solid #c3e6cb', fontSize: 13, color: '#2c3e50' }}>
-              {note.msgText}
-            </div>
-          )}
           {note.msgFor && (
-            <button onClick={() => copyMessage(note.msgFor, note.msgText)}
+            <button onClick={() => copyMessage(note.msgFor)}
               style={{ marginLeft: 10, padding: '4px 10px', fontSize: 12, fontWeight: 600,
                        border: 'none', borderRadius: 4, background: '#2980b9', color: '#fff', cursor: 'pointer' }}>
               Copy message to send
