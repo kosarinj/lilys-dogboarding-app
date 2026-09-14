@@ -96,6 +96,59 @@ router.get('/', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/stays/paid — everything that's been paid, newest money first.
+ *
+ * Before this there was nowhere that simply listed what had come in. Must stay
+ * above /:id or "paid" gets read as a stay id.
+ */
+router.get('/paid', async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT s.*, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      FROM stays s
+      JOIN dogs d ON s.dog_id = d.id
+      JOIN customers c ON d.customer_id = c.id
+      WHERE s.payment_state IN ('paid', 'captured') AND s.status <> 'cancelled'
+      ORDER BY COALESCE(s.paid_at, s.updated_at) DESC
+      LIMIT 500
+    `)
+    res.json(r.rows.map(s => ({ ...s, amount: stayTotal(s), message: thanksText(s) })))
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * POST /api/stays/:id/thanked — she copied the thank-you to send it.
+ * Undoable ({ clear: true }), since copying isn't proof it went.
+ */
+router.post('/:id/thanked', async (req, res) => {
+  try {
+    const r = await query(
+      `UPDATE stays SET thanked_at = ${req.body?.clear ? 'NULL' : 'CURRENT_TIMESTAMP'}
+       WHERE id = $1 RETURNING thanked_at`,
+      [req.params.id]
+    )
+    res.json({ success: true, thanked_at: r.rows[0]?.thanked_at || null })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * The thank-you wording, in one place: the Paid tab's copy button shows it,
+ * and mark-paid texts it once texting works.
+ */
+function thanksText(stay) {
+  const d = (v) => {
+    const [, mo, dd] = toDateStr(v).split('-')
+    return `${Number(mo)}/${Number(dd)}`
+  }
+  return `Thanks for your payment, ${stay.dog_name} is now confirmed for ` +
+    `${d(stay.check_in_date)} through ${d(stay.check_out_date)}.`
+}
+
 // GET /api/stays/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -703,7 +756,8 @@ router.post('/requests/:id/approve', async (req, res) => {
     // status IN ('upcoming','active') query — calendar, capacity, analytics.
     const payState = stay.payment_state === 'captured' ? 'captured' : 'awaiting'
     await query(
-      `UPDATE stays SET status = $2::stay_status, payment_state = $3, updated_at = CURRENT_TIMESTAMP
+      `UPDATE stays SET status = $2::stay_status, payment_state = $3::varchar, updated_at = CURRENT_TIMESTAMP,
+              paid_at = CASE WHEN $3::varchar = 'captured' THEN CURRENT_TIMESTAMP ELSE paid_at END
        WHERE id = $1`,
       [id, status, payState]
     )
@@ -900,22 +954,23 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
     if (r.rows.length === 0) return res.status(404).json({ error: 'Stay not found' })
 
     await query(`
-      UPDATE stays SET payment_state = 'paid', payment_method = $2, updated_at = CURRENT_TIMESTAMP
+      UPDATE stays SET payment_state = 'paid', payment_method = $2, updated_at = CURRENT_TIMESTAMP,
+             paid_at = CURRENT_TIMESTAMP, thanked_at = NULL
       WHERE id = $1
     `, [id, method || null])
 
     const full = await query(`
-      SELECT s.total_cost, s.holiday_fee, s.special_price, d.name AS dog_name, c.name AS customer_name, c.phone AS customer_phone
+      SELECT s.check_in_date, s.check_out_date, d.name AS dog_name, c.phone AS customer_phone
       FROM stays s JOIN dogs d ON s.dog_id = d.id JOIN customers c ON d.customer_id = c.id
       WHERE s.id = $1
     `, [id])
     const row = full.rows[0]
-    const sms = row ? await sendSms(
-      row.customer_phone,
-      `Thanks ${String(row.customer_name || '').split(' ')[0]}! Payment of ` +
-      `$${stayTotal(row).toFixed(2)} received for ${row.dog_name}. ` +
-      `You're all confirmed. — Lily's Dog Boarding`
-    ) : { sent: false, reason: 'Stay not found' }
+    // Same words as the Paid tab's copy button. Fails quietly while texting is
+    // off; the Paid tab is where she copies it from until then.
+    const sms = row
+      ? await sendSms(row.customer_phone, thanksText(row))
+      : { sent: false, reason: 'Stay not found' }
+    if (sms.sent) await query(`UPDATE stays SET thanked_at = CURRENT_TIMESTAMP WHERE id = $1`, [id])
 
     res.json({ success: true, sms })
   } catch (e) {
@@ -928,7 +983,8 @@ router.post('/requests/:id/mark-paid', async (req, res) => {
 router.post('/requests/:id/unmark-paid', async (req, res) => {
   try {
     await query(
-      `UPDATE stays SET payment_state = 'awaiting', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      `UPDATE stays SET payment_state = 'awaiting', paid_at = NULL, thanked_at = NULL,
+              updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [req.params.id]
     )
     res.json({ success: true })

@@ -232,7 +232,7 @@ export default function BookingRequests() {
       setNote({
         tone: 'ok',
         text: `${row.dog_name} marked paid — now confirmed.` +
-          (sms?.sent ? ' Receipt texted.' : ` (No receipt text: ${sms?.reason || 'texting off'}.)`),
+          (sms?.sent ? ' Thank-you texted.' : ' Copy the thank-you from the Paid tab to send it.'),
       })
       await load()
     } catch (e) {

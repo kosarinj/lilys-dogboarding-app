@@ -7,6 +7,7 @@ import CustomersManager from '../components/admin/CustomersManager'
 import DogsManager from '../components/admin/DogsManager'
 import StaysManager from '../components/admin/StaysManager'
 import BookingRequests from '../components/admin/BookingRequests'
+import PaidStays from '../components/admin/PaidStays'
 import HolidaysManager from '../components/admin/HolidaysManager'
 import BillingManager from '../components/admin/BillingManager'
 import RatesConfig from '../components/admin/RatesConfig'
@@ -71,6 +72,12 @@ function AdminPage() {
             </Link>
           </li>
           <li>
+            <Link to="/admin/paid" className={`menu-item ${isActive('/admin/paid') ? 'active' : ''}`}>
+              <span className="menu-icon">💵</span>
+              <span>Paid</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/admin/calendar" className={`menu-item ${isActive('/admin/calendar') ? 'active' : ''}`}>
               <span className="menu-icon">🗓️</span>
               <span>Calendar</span>
@@ -118,6 +125,7 @@ function AdminPage() {
           <Route path="/dogs" element={<DogsManager />} />
           <Route path="/stays" element={<StaysManager />} />
           <Route path="/requests" element={<BookingRequests />} />
+          <Route path="/paid" element={<PaidStays />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/billing" element={<BillingManager />} />
           <Route path="/holidays" element={<HolidaysManager />} />

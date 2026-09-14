@@ -493,6 +493,18 @@ export async function runMigrations() {
     }
     console.log('✓ Dog photos ready')
 
+    // When a stay was paid, and when she sent the thank-you for it. The Paid
+    // tab is the only record she has of what's come in, so it needs to know
+    // the order money arrived in and which customers are still owed a thanks.
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP`)
+    await query(`ALTER TABLE stays ADD COLUMN IF NOT EXISTS thanked_at TIMESTAMP`)
+    // Stays paid before this existed: updated_at is the best guess there is.
+    await query(`
+      UPDATE stays SET paid_at = updated_at
+      WHERE paid_at IS NULL AND payment_state IN ('paid', 'captured')
+    `)
+    console.log('✓ Paid tracking ready')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)
