@@ -2,6 +2,8 @@ import express from 'express'
 import { query } from '../models/db.js'
 import { requireAuth } from '../middleware/auth.js'
 import { holidayChargeForStay, syncHolidayFee } from '../services/holidays.js'
+import { sendSms } from '../services/sms.js'
+import { toDateStr } from '../utils/dates.js'
 import twilio from 'twilio'
 
 const router = express.Router()
@@ -284,7 +286,48 @@ router.put('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Bill not found' })
     }
 
-    res.json(result.rows[0])
+    const bill = result.rows[0]
+    if (status !== 'paid') return res.json(bill)
+
+    // Paid is when the reservation becomes confirmed. Settle the stays on it so
+    // Booking requests agrees, then write the confirmation with the invoice
+    // link. It's returned as well as texted so it can be sent by hand while
+    // texting is off.
+    await query(`
+      UPDATE stays SET payment_state = 'paid', payment_method = COALESCE($2, payment_method),
+             updated_at = CURRENT_TIMESTAMP
+      WHERE id IN (SELECT stay_id FROM bill_items WHERE bill_id = $1)
+        AND COALESCE(payment_state, '') NOT IN ('paid', 'captured')
+    `, [id, payment_method])
+
+    const info = await query(`
+      SELECT c.name AS customer_name, c.phone AS customer_phone,
+             MIN(s.check_in_date) AS check_in_date, MAX(s.check_out_date) AS check_out_date,
+             STRING_AGG(DISTINCT d.name, ' & ') AS dog_names
+      FROM bills b
+      JOIN customers c ON b.customer_id = c.id
+      LEFT JOIN bill_items bi ON bi.bill_id = b.id
+      LEFT JOIN stays s ON bi.stay_id = s.id
+      LEFT JOIN dogs d ON s.dog_id = d.id
+      WHERE b.id = $1
+      GROUP BY c.name, c.phone
+    `, [id])
+    const row = info.rows[0]
+    const link = `${process.env.CLIENT_URL || process.env.PUBLIC_URL || 'http://localhost:5173'}/bill/${bill.bill_code}`
+    const md = (v) => {
+      const [, m, d] = toDateStr(v).split('-')
+      return `${Number(m)}/${Number(d)}`
+    }
+    const first = String(row?.customer_name || '').split(' ')[0]
+    const what = row?.check_in_date
+      ? `your reservation for ${row.dog_names}, ${md(row.check_in_date)} through ${md(row.check_out_date)}, is confirmed`
+      : 'your reservation is confirmed'
+    const message = `Hi ${first}, you're all set — ${what}. ` +
+      `Payment of $${Number(bill.total_amount).toFixed(2)} received. ` +
+      `Your invoice: ${link} Thank you! — Lily's Dog Boarding`
+    const sms = await sendSms(row?.customer_phone, message)
+
+    res.json({ ...bill, message, link, sms })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

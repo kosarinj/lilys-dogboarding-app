@@ -12,6 +12,13 @@ function BillingManager() {
   const [selectedStays, setSelectedStays] = useState({})
   const [viewingBill, setViewingBill] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [paidNote, setPaidNote] = useState(null)
+
+  const copyPaidNote = async () => {
+    try { await navigator.clipboard.writeText(paidNote.text) }
+    catch { window.prompt('Copy this message:', paidNote.text) }
+    setPaidNote({ ...paidNote, copied: true })
+  }
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -94,11 +101,16 @@ function BillingManager() {
     if (!confirm('Mark this bill as paid?')) return
 
     try {
-      await billsAPI.update(billId, {
+      const r = await billsAPI.update(billId, {
         status: 'paid',
         paid_amount: totalAmount,
         payment_method: 'cash'
       })
+      // The "you're all set" text with the invoice link. Shown whether or not
+      // it sent, so it can be copied and sent by hand while texting is off.
+      if (r.data?.message) {
+        setPaidNote({ text: r.data.message, sent: !!r.data.sms?.sent, reason: r.data.sms?.reason, copied: false })
+      }
       loadData()
       if (viewingBill && viewingBill.id === billId) {
         setViewingBill(null)
@@ -182,6 +194,27 @@ function BillingManager() {
       {error && (
         <div className="error-state">
           {error}
+        </div>
+      )}
+
+      {paidNote && (
+        <div style={{ background: '#eafaf1', border: '1px solid #c3e6cb', borderRadius: 8,
+                      padding: '12px 14px', marginBottom: 16, fontSize: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>
+            Marked paid — {paidNote.sent
+              ? 'confirmation texted.'
+              : `text didn't send (${paidNote.reason || 'texting off'}). Copy it and send it yourself:`}
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #c3e6cb', borderRadius: 5,
+                        padding: '8px 10px', fontSize: 13, color: '#2c3e50' }}>
+            {paidNote.text}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button onClick={copyPaidNote} className="btn btn-success">
+              {paidNote.copied ? '✓ Copied' : 'Copy message'}
+            </button>
+            <button onClick={() => setPaidNote(null)} className="btn btn-edit">Dismiss</button>
+          </div>
         </div>
       )}
 
