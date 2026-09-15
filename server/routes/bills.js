@@ -284,6 +284,17 @@ router.put('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Bill not found' })
     }
 
+    // Marking a bill paid settles the stays on it. The Paid tab reads stays,
+    // so without this a bill paid here never showed up there.
+    if (status === 'paid') {
+      await query(`
+        UPDATE stays SET payment_state = 'paid', payment_method = COALESCE($2, payment_method),
+               paid_at = CURRENT_TIMESTAMP, thanked_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id IN (SELECT stay_id FROM bill_items WHERE bill_id = $1)
+          AND COALESCE(payment_state, '') NOT IN ('paid', 'captured')
+      `, [id, payment_method || null])
+    }
+
     res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ error: error.message })

@@ -503,6 +503,21 @@ export async function runMigrations() {
       UPDATE stays SET paid_at = updated_at
       WHERE paid_at IS NULL AND payment_state IN ('paid', 'captured')
     `)
+    // Stays on bills marked paid from Billing, which used to settle only the
+    // bill. Paid when the bill was last touched. Anything paid before the Paid
+    // tab existed counts as already thanked, so "still to thank" starts from
+    // what's actually outstanding rather than eight months of history.
+    const billPaid = await query(`
+      UPDATE stays s
+      SET payment_state = 'paid',
+          payment_method = COALESCE(s.payment_method, b.payment_method),
+          paid_at = COALESCE(s.paid_at, b.updated_at),
+          thanked_at = CASE WHEN b.updated_at < '2026-09-14' THEN b.updated_at ELSE s.thanked_at END
+      FROM bill_items bi, bills b
+      WHERE bi.stay_id = s.id AND b.id = bi.bill_id AND b.status = 'paid'
+        AND COALESCE(s.payment_state, '') NOT IN ('paid', 'captured')
+    `)
+    if (billPaid.rowCount) console.log(`✓ Marked ${billPaid.rowCount} stay(s) paid from their paid bills`)
     console.log('✓ Paid tracking ready')
 
     console.log('✓ All migrations completed successfully')

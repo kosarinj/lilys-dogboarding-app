@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { staysAPI, dogsAPI, settingsAPI, ratesAPI } from '../../utils/api'
+import api, { staysAPI, dogsAPI, settingsAPI, ratesAPI } from '../../utils/api'
 import './admin.css'
 import { stayTotal } from '../../utils/stayTotal'
 
@@ -162,6 +162,32 @@ function StaysManager() {
       loadData()
     } catch (err) {
       setError('Failed to delete stay.')
+      console.error(err)
+    }
+  }
+
+  // Stays entered here never pass through Requests, so this is where they get
+  // marked paid — and marking paid is what puts them on the Paid tab.
+  const handleMarkPaid = async (stay) => {
+    const method = window.prompt(
+      `How did ${stay.dog_name}'s payment come in? (venmo, zelle or cash)`, 'venmo')
+    if (method === null) return
+    try {
+      await api.post(`/stays/requests/${stay.id}/mark-paid`, { method: method.trim().toLowerCase() || null })
+      loadData()
+    } catch (err) {
+      setError('Failed to mark paid.')
+      console.error(err)
+    }
+  }
+
+  const handleUnmarkPaid = async (stay) => {
+    if (!confirm(`Undo paid for ${stay.dog_name}?`)) return
+    try {
+      await api.post(`/stays/requests/${stay.id}/unmark-paid`, {})
+      loadData()
+    } catch (err) {
+      setError('Failed to undo paid.')
       console.error(err)
     }
   }
@@ -819,6 +845,19 @@ function StaysManager() {
                       </span>
                     </td>
                     <td>
+                      {stay.status !== 'cancelled' && (
+                        ['paid', 'captured'].includes(stay.payment_state) ? (
+                          <button onClick={() => handleUnmarkPaid(stay)} className="btn"
+                            title="Paid — click to undo"
+                            style={{ background: '#e8f5e9', color: '#27ae60', border: '1px solid #c3e6cb' }}>
+                            ✓ Paid
+                          </button>
+                        ) : (
+                          <button onClick={() => handleMarkPaid(stay)} className="btn btn-success">
+                            💵 Mark paid
+                          </button>
+                        )
+                      )}
                       <button onClick={() => handleEdit(stay)} className="btn btn-edit">
                         Edit
                       </button>
