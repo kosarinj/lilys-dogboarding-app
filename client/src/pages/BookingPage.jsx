@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import { PolicyLinks } from './PolicyPages'
 import PayButtons from '../components/shared/PayButtons'
 import { stayTotal } from '../utils/stayTotal'
 import DogCollage from '../components/shared/DogCollage'
@@ -334,6 +335,7 @@ export default function BookingPage() {
           </>
         )}
       </section>
+      <PolicyLinks />
     </Shell>
   )
 }

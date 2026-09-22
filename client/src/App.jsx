@@ -4,6 +4,7 @@ import AdminPage from './pages/AdminPage'
 import BillPage from './pages/BillPage'
 import BookingPage from './pages/BookingPage'
 import RequestAccessPage from './pages/RequestAccessPage'
+import { PrivacyPage, TermsPage } from './pages/PolicyPages'
 import { isLoggedIn } from './utils/auth'
 
 // Guard admin pages: send un-authenticated visitors to the login screen.
@@ -24,6 +25,9 @@ function App() {
         {/* The one link Lily hands out. Proves the number by text, then drops
             the customer on their own /book page. */}
         <Route path="/request" element={<RequestAccessPage />} />
+        {/* Public policy pages — the texting registration links to these. */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Routes>
     </Router>
   )

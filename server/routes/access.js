@@ -64,6 +64,22 @@ const NOT_ON_FILE =
   'and you can book yourself in from then on.'
 
 /** POST /api/access/start — { phone } → text them a code. */
+/**
+ * GET /contact — Lily's number for the public Privacy and SMS Terms pages.
+ *
+ * The texting registration wants a way to reach the business on those pages.
+ * It's the owner_phone from Settings (where booking alerts go), so changing it
+ * there changes the pages; unset, the pages say "reply HELP" instead.
+ */
+router.get('/contact', async (req, res) => {
+  try {
+    const r = await query(`SELECT value FROM app_config WHERE key = 'owner_phone'`)
+    res.json({ phone: r.rows[0]?.value || null })
+  } catch {
+    res.json({ phone: null })
+  }
+})
+
 router.post('/start', async (req, res) => {
   try {
     const { phone } = req.body || {}

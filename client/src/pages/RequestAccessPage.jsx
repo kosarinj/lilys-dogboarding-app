@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { PolicyLinks } from './PolicyPages'
 
 /**
  * The one link Lily hands out — /request.
@@ -32,6 +33,9 @@ export default function RequestAccessPage() {
   const [name, setName] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  // Texting consent, asked where the number is collected — the texting
+  // registration requires it. Unticked by default: consent has to be given.
+  const [agreed, setAgreed] = useState(false)
 
   const digits = phone.replace(/\D/g, '')
 
@@ -89,8 +93,19 @@ export default function RequestAccessPage() {
               placeholder="(555) 123-4567"
               style={input}
             />
+            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: '#6c7a89', lineHeight: 1.45, marginBottom: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }} />
+              <span>
+                I agree to receive text messages from Lily's Dog Boarding about my bookings,
+                including login codes, booking confirmations and bills. Message frequency
+                varies. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help.
+                See our <Link to="/privacy" style={{ color: '#6c7a89' }}>Privacy Policy</Link> and{' '}
+                <Link to="/terms" style={{ color: '#6c7a89' }}>SMS Terms</Link>.
+              </span>
+            </label>
             {error && <Err>{error}</Err>}
-            <button type="submit" disabled={busy || digits.length < 10} style={btn(busy || digits.length < 10)}>
+            <button type="submit" disabled={busy || digits.length < 10 || !agreed} style={btn(busy || digits.length < 10 || !agreed)}>
               {busy ? 'Sending…' : 'Text me a code'}
             </button>
           </form>
@@ -129,6 +144,7 @@ export default function RequestAccessPage() {
       <p style={{ fontSize: 13, color: '#6c7a89', textAlign: 'center', margin: 0 }}>
         New here? Text Lily to get set up first — after that you can book yourself in any time.
       </p>
+      <PolicyLinks />
     </Shell>
   )
 }
