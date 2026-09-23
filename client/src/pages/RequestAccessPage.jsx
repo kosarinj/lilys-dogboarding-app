@@ -43,7 +43,7 @@ export default function RequestAccessPage() {
     e?.preventDefault()
     setBusy(true); setError(null)
     try {
-      const r = await axios.post(`${API}/access/start`, { phone: digits })
+      const r = await axios.post(`${API}/access/start`, { phone: digits, consent: agreed })
       setName(r.data.name || '')
       setStep('code')
     } catch (err) {

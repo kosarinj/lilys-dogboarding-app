@@ -520,6 +520,12 @@ export async function runMigrations() {
     if (billPaid.rowCount) console.log(`✓ Marked ${billPaid.rowCount} stay(s) paid from their paid bills`)
     console.log('✓ Paid tracking ready')
 
+    // When a customer ticked the texting consent box on /request. Carriers
+    // want the opt-in recorded and confirmed, and the confirmation sent once —
+    // not on every login code.
+    await query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS sms_opted_in_at TIMESTAMP`)
+    console.log('✓ SMS opt-in tracking ready')
+
     console.log('✓ All migrations completed successfully')
   } catch (error) {
     console.error('Migration error:', error.message)

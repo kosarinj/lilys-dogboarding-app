@@ -51,7 +51,7 @@ async function customerByPhone(raw) {
   if (digits.length < 10) return null
   const last10 = digits.slice(-10)
   const r = await query(
-    `SELECT id, name, phone, booking_code FROM customers
+    `SELECT id, name, phone, booking_code, sms_opted_in_at FROM customers
      WHERE RIGHT(REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g'), 10) = $1
      LIMIT 1`,
     [last10]
@@ -82,7 +82,7 @@ router.get('/contact', async (req, res) => {
 
 router.post('/start', async (req, res) => {
   try {
-    const { phone } = req.body || {}
+    const { phone, consent } = req.body || {}
     const e164 = toE164(phone)
     if (!e164) return res.status(400).json({ error: 'Please enter a 10-digit mobile number.' })
 
@@ -121,6 +121,20 @@ router.post('/start', async (req, res) => {
     )
     if (!sms.sent) {
       return res.status(502).json({ error: `Couldn't send the code: ${sms.reason || 'unknown error'}` })
+    }
+
+    // The opt-in confirmation the carriers ask for, sent the first time this
+    // customer ticks the consent box and never again — a returning customer
+    // gets a login code, not a second welcome. Its failure is not the
+    // customer's problem: they have their code either way.
+    if (consent === true && !customer.sms_opted_in_at) {
+      await query(`UPDATE customers SET sms_opted_in_at = CURRENT_TIMESTAMP WHERE id = $1`, [customer.id])
+      await sendSms(
+        e164,
+        `Lily's Dog Boarding: You've successfully subscribed to receive booking messages — ` +
+        `login codes, booking confirmations and bills. Msg frequency varies. ` +
+        `Msg & data rates may apply. Reply STOP to cancel, HELP for help.`
+      )
     }
     // The name is a reassurance that the right number was typed. First name
     // only — the full name is more than a wrong number should learn.
