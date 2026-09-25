@@ -75,11 +75,32 @@ app.get('/api/health', (req, res) => {
 })
 
 // Serve static files in production
+//
+// index.html is never cached; everything under assets/ is cached forever.
+//
+// Those two rules go together: Vite puts a content hash in every asset
+// filename, so a new build produces new names and can never be served a stale
+// one — but only if the page that names them is fresh. Without this the whole
+// shell was cacheable, and an iPhone home-screen copy kept serving a build from
+// weeks earlier: the invoice's Venmo and Zelle buttons were missing on the
+// phone while the same invoice showed them in a browser.
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client/dist')))
+  const clientDist = path.join(__dirname, 'client/dist')
+  app.use(express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      const parts = filePath.split(path.sep)
+      if (parts[parts.length - 1] === 'index.html') {
+        res.setHeader('Cache-Control', 'no-store, must-revalidate')
+      } else if (parts.includes('assets')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      }
+    },
+  }))
 
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client/dist/index.html'))
+    // The SPA fallback serves the same shell, so it needs the same rule.
+    res.setHeader('Cache-Control', 'no-store, must-revalidate')
+    res.sendFile(path.join(clientDist, 'index.html'))
   })
 }
 
