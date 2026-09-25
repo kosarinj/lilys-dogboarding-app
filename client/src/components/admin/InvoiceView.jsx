@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { ratesAPI } from '../../utils/api'
 import { authHeader } from '../../utils/auth'
 import PayButtons from '../shared/PayButtons'
+import PreviousBalance from '../shared/PreviousBalance'
 import './admin.css'
 
 function InvoiceView({ bill, onClose }) {
@@ -10,6 +11,10 @@ function InvoiceView({ bill, onClose }) {
   // What's still owed, exactly as the customer's own copy works it out, so the
   // invoice she's looking at and the one they open can't disagree.
   const amountDue = Number(bill.total_amount || 0) - Number(bill.paid_amount || 0)
+  // Outstanding on earlier invoices, from the server. Those stays remain on their
+  // own invoice; this is only carried forward as a figure.
+  const previousBalance = Number(bill.previous_balance?.total || 0)
+  const totalDue = amountDue + previousBalance
 
   useEffect(() => {
     const loadRates = async () => {
@@ -595,6 +600,22 @@ function InvoiceView({ bill, onClose }) {
             </div>
           </div>
 
+          {/* Carried forward from an earlier unpaid invoice, so she can see at a
+              glance that this customer is behind before she sends this one. */}
+          {previousBalance > 0 && (
+            <div style={{ marginTop: '-24px', marginBottom: '40px', paddingTop: '16px', borderTop: '1px solid #e8e8e8' }}>
+              <PreviousBalance
+                previous={bill.previous_balance}
+                labelStyle={{ fontSize: '17px', fontWeight: 600, color: '#7f8c8d' }}
+                valueStyle={{ fontSize: '17px', fontWeight: 700, color: '#2c3e50' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '24px', fontWeight: 700, color: '#2c3e50' }}>
+                <div>TOTAL DUE:</div>
+                <div style={{ color: 'var(--theme-primary, #f472b6)' }}>{formatCurrency(totalDue)}</div>
+              </div>
+            </div>
+          )}
+
           {/* Personal Message */}
           <div style={{
             background: '#f8f9fa',
@@ -679,9 +700,9 @@ function InvoiceView({ bill, onClose }) {
                 it off herself when someone hands her a phone, and so this screen
                 stops looking like it's missing something. Hidden once nothing is
                 owed, and on a printed copy where a tappable link does nothing. */}
-            {amountDue > 0 && bill.status !== 'cancelled' && (
+            {totalDue > 0 && bill.status !== 'cancelled' && (
               <div className="no-print" style={{ marginTop: '14px' }}>
-                <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} compact />
+                <PayButtons amount={totalDue} note={`Boarding invoice ${bill.bill_code}`} compact />
               </div>
             )}
           </div>

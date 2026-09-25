@@ -22,6 +22,59 @@ function generateBillCode() {
   return code
 }
 
+/**
+ * What this customer still owes on EARLIER invoices.
+ *
+ * An unpaid stay stays on its own invoice — it is never copied onto the new one,
+ * because a stay sitting on two bills would be counted twice in every total and
+ * marking one paid would leave the other owing. The new invoice reports the older
+ * balance instead, naming the stays so the customer can see what it is for.
+ *
+ * Earlier means earlier by bill date, and by id when two share a date.
+ */
+async function previousBalanceFor(bill) {
+  const { rows: bills } = await query(`
+    SELECT b.id, b.bill_code, b.bill_date, b.status::text AS status,
+           (COALESCE(b.total_amount, 0) - COALESCE(b.paid_amount, 0)) AS owed
+    FROM bills b
+    WHERE b.customer_id = $1
+      AND b.id <> $2
+      AND b.status::text <> 'cancelled'
+      AND COALESCE(b.total_amount, 0) - COALESCE(b.paid_amount, 0) > 0
+      AND (b.bill_date < $3 OR (b.bill_date = $3 AND b.id < $2))
+    ORDER BY b.bill_date, b.id
+  `, [bill.customer_id, bill.id, bill.bill_date])
+
+  if (!bills.length) return { total: 0, bills: [] }
+
+  // DISTINCT because a stay with a holiday surcharge has two rows on its bill,
+  // and the same stay listed twice reads as two visits.
+  const { rows: stays } = await query(`
+    -- ::text, so these arrive as plain YYYY-MM-DD. A bare DATE comes back as a
+    -- Date object and reaches the page as a UTC timestamp, which is how a stay
+    -- ends up displayed a day early — or, read date-only, as "Invalid Date".
+    SELECT DISTINCT bi.bill_id, s.id AS stay_id, d.name AS dog_name,
+           s.check_in_date::text AS check_in_date, s.check_out_date::text AS check_out_date
+    FROM bill_items bi
+    JOIN stays s ON bi.stay_id = s.id
+    JOIN dogs d ON s.dog_id = d.id
+    WHERE bi.bill_id = ANY($1)
+    ORDER BY s.check_in_date::text
+  `, [bills.map(b => b.id)])
+
+  return {
+    total: bills.reduce((sum, b) => sum + Number(b.owed || 0), 0),
+    bills: bills.map(b => ({
+      bill_code: b.bill_code,
+      bill_date: b.bill_date,
+      status: b.status,
+      owed: Number(b.owed || 0),
+      stays: stays.filter(s => s.bill_id === b.id)
+        .map(({ dog_name, check_in_date, check_out_date }) => ({ dog_name, check_in_date, check_out_date })),
+    })),
+  }
+}
+
 // GET /api/bills/unbilled/stays - Get upcoming, active, and completed stays without bills (must be before /:id)
 router.get('/unbilled/stays', requireAuth, async (req, res) => {
   try {
@@ -108,6 +161,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     `, [id])
 
     bill.items = itemsResult.rows
+    bill.previous_balance = await previousBalanceFor(bill)
 
     res.json(bill)
   } catch (error) {
@@ -149,6 +203,7 @@ router.get('/code/:code', async (req, res) => {
     `, [bill.id])
 
     bill.items = itemsResult.rows
+    bill.previous_balance = await previousBalanceFor(bill)
 
     res.json(bill)
   } catch (error) {
@@ -361,9 +416,18 @@ router.post('/:id/send-sms', requireAuth, async (req, res) => {
       })
     }
 
+    // If an earlier invoice is still owing, the text has to say so. Quoting this
+    // invoice's total alone would contradict the invoice it links to, which now
+    // asks for both — and the figure in the text is the one people pay from.
+    const prev = await previousBalanceFor(bill)
+    const totals = prev.total > 0
+      ? `Total: $${bill.total_amount}\nPrevious balance: $${prev.total.toFixed(2)}\n`
+        + `Total due: $${(Number(bill.total_amount || 0) + prev.total).toFixed(2)}`
+      : `Total: $${bill.total_amount}`
+
     // Send SMS via Twilio
     const message = await twilioClient.messages.create({
-      body: `Hi! Here's your bill from Lily's Dog Boarding: ${billLink}\n\nTotal: $${bill.total_amount}\nDue Date: ${new Date(bill.due_date).toLocaleDateString()}`,
+      body: `Hi! Here's your bill from Lily's Dog Boarding: ${billLink}\n\n${totals}\nDue Date: ${new Date(bill.due_date).toLocaleDateString()}`,
       from: process.env.TWILIO_PHONE_NUMBER,
       to: phone_number
     })

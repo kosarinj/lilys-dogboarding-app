@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import PayButtons from '../shared/PayButtons'
+import PreviousBalance from '../shared/PreviousBalance'
 
 function BillView({ billCode }) {
   const [bill, setBill] = useState(null)
@@ -61,6 +62,12 @@ function BillView({ billCode }) {
   const amountDue = bill
     ? Number(bill.total_amount || 0) - Number(bill.paid_amount || 0)
     : 0
+
+  // Unpaid earlier invoices, reported by the server. Those stays are not on this
+  // invoice, so they are added to what's owed rather than to the invoice total —
+  // the invoice still totals the stays it actually lists.
+  const previousBalance = Number(bill?.previous_balance?.total || 0)
+  const totalDue = amountDue + previousBalance
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
@@ -484,6 +491,27 @@ function BillView({ billCode }) {
               {formatCurrency(bill.total_amount)}
             </span>
           </div>
+
+          {/* An older unpaid invoice, added on after this invoice's own total so
+              the customer has one figure to send. The earlier invoice is still
+              its own invoice — this only says what is outstanding on it. */}
+          {previousBalance > 0 && (
+            <>
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
+                <PreviousBalance
+                  previous={bill.previous_balance}
+                  labelStyle={{ fontSize: '16px', color: '#7f8c8d' }}
+                  valueStyle={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '20px', fontWeight: '700', color: '#2c3e50' }}>Total Due:</span>
+                  <span style={{ fontSize: '24px', fontWeight: '700', color: '#f472b6' }}>
+                    {formatCurrency(totalDue)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Personal Message */}
@@ -568,9 +596,12 @@ function BillView({ billCode }) {
 
           {/* Buttons below the details, and hidden on a printed copy where a
               tappable link is meaningless. */}
-          {amountDue > 0 && bill.status !== 'cancelled' && (
+          {/* Prefilled with everything outstanding, including an older invoice —
+              asking for this invoice's figure alone would leave the customer short
+              and Lily chasing the difference. */}
+          {totalDue > 0 && bill.status !== 'cancelled' && (
             <div className="no-print" style={{ marginTop: '14px' }}>
-              <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} compact />
+              <PayButtons amount={totalDue} note={`Boarding invoice ${bill.bill_code}`} compact />
             </div>
           )}
         </div>
