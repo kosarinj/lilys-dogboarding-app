@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
 import { ratesAPI } from '../../utils/api'
 import { authHeader } from '../../utils/auth'
+import PayButtons from '../shared/PayButtons'
 import './admin.css'
 
 function InvoiceView({ bill, onClose }) {
   const [rates, setRates] = useState([])
+
+  // What's still owed, exactly as the customer's own copy works it out, so the
+  // invoice she's looking at and the one they open can't disagree.
+  const amountDue = Number(bill.total_amount || 0) - Number(bill.paid_amount || 0)
 
   useEffect(() => {
     const loadRates = async () => {
@@ -669,6 +674,16 @@ function InvoiceView({ bill, onClose }) {
               <div><strong>Venmo:</strong> @lilykos</div>
               <div><strong>Zelle:</strong> lilykos@me.com</div>
             </div>
+
+            {/* The same buttons the customer gets on their copy, so she can pay
+                it off herself when someone hands her a phone, and so this screen
+                stops looking like it's missing something. Hidden once nothing is
+                owed, and on a printed copy where a tappable link does nothing. */}
+            {amountDue > 0 && bill.status !== 'cancelled' && (
+              <div className="no-print" style={{ marginTop: '14px' }}>
+                <PayButtons amount={amountDue} note={`Boarding invoice ${bill.bill_code}`} compact />
+              </div>
+            )}
           </div>
 
           {/* Footer */}
