@@ -98,7 +98,20 @@ if (process.env.NODE_ENV === 'production') {
   }))
 
   app.get('*', (req, res) => {
-    // The SPA fallback serves the same shell, so it needs the same rule.
+    // A request for a FILE that isn't there must 404, never fall through to the
+    // HTML shell.
+    //
+    // Every deploy renames the hashed bundle, so a phone holding a cached page
+    // asks for its old one. Answering that with index.html returned HTML with a
+    // 200 and a JS content type: the browser parsed the page as a module, hit a
+    // syntax error, and rendered nothing — the app looked completely broken and
+    // could not recover, because the copy it needed to replace was the very page
+    // it had cached. A 404 lets the browser fail honestly and refetch the shell,
+    // which is now no-store.
+    if (req.path.startsWith('/assets/') || path.extname(req.path)) {
+      return res.status(404).type('txt').send('Not found')
+    }
+    // Real app routes get the shell, under the same no-cache rule as index.html.
     res.setHeader('Cache-Control', 'no-store, must-revalidate')
     res.sendFile(path.join(clientDist, 'index.html'))
   })
