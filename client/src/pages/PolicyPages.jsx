@@ -16,14 +16,14 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const BUSINESS = "Lily's Dog Boarding"
 const UPDATED = 'September 22, 2026'
 
-// Lily's number, from Settings (the same one booking alerts go to), so the
-// pages never show a placeholder. Absent, the contact line falls back to HELP.
-function useContactPhone() {
-  const [phone, setPhone] = useState(null)
+// Lily's number and email, from Settings, so the pages never show a
+// placeholder. Absent, the contact line falls back to HELP.
+export function useBusiness() {
+  const [b, setB] = useState({})
   useEffect(() => {
-    axios.get(`${API}/access/contact`).then(r => setPhone(r.data.phone || null)).catch(() => {})
+    axios.get(`${API}/access/contact`).then(r => setB(r.data || {})).catch(() => {})
   }, [])
-  return phone
+  return b
 }
 
 function prettyPhone(e164) {
@@ -32,10 +32,13 @@ function prettyPhone(e164) {
 }
 
 function Contact() {
-  const phone = useContactPhone()
-  return phone
-    ? <>call or text Lily at <a href={`tel:${phone}`}>{prettyPhone(phone)}</a>, or reply HELP to any of our texts</>
-    : <>reply HELP to any of our texts</>
+  const { phone, email } = useBusiness()
+  if (!phone && !email) return <>reply HELP to any of our texts</>
+  return <>
+    {phone && <>call or text Lily at <a href={`tel:${phone}`}>{prettyPhone(phone)}</a></>}
+    {phone && email && <>, or </>}
+    {email && <>email <a href={`mailto:${email}`}>{email}</a></>}
+  </>
 }
 
 // Every message the app sends a customer. See the note at the top.
@@ -72,7 +75,7 @@ export function PrivacyPage() {
       <h2 style={h2}>Who else sees it</h2>
       <p>Your information is stored in our booking system and seen only by Lily. It passes to the
         services that run that system only as needed to provide it — our text message provider
-        (Twilio) to deliver texts, and our payment processor (Stripe) to take card payments — and to no one
+        (Vonage) to deliver texts, and our payment processor (Stripe) to take card payments — and to no one
         else, unless the law requires it.</p>
 
       <h2 style={h2}>Your choices</h2>

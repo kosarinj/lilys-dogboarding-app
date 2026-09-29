@@ -197,4 +197,48 @@ router.put('/owner/phone', requireAuth, async (req, res) => {
   }
 })
 
+/**
+ * The business email and service area shown on the public home page and in the
+ * policies. The texting registration wants a contact address and a phone that
+ * can be matched to the brand's own website, so both have to be published.
+ */
+const PUBLIC_DETAIL_KEYS = { email: 'business_email', location: 'business_location' }
+
+router.get('/business', requireAuth, async (req, res) => {
+  try {
+    const r = await query(
+      `SELECT key, value FROM app_config WHERE key IN ('business_email', 'business_location')`)
+    const c = Object.fromEntries(r.rows.map(x => [x.key, x.value]))
+    res.json({ email: c.business_email || '', location: c.business_location || '' })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+router.put('/business', requireAuth, async (req, res) => {
+  try {
+    const out = {}
+    for (const [field, key] of Object.entries(PUBLIC_DETAIL_KEYS)) {
+      if (!(field in (req.body || {}))) continue
+      const value = String(req.body[field] ?? '').trim()
+      if (field === 'email' && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+        return res.status(400).json({ error: 'That does not look like an email address.' })
+      }
+      // Empty clears it — the page then leaves that line out rather than
+      // publishing a blank.
+      if (value) {
+        await query(
+          `INSERT INTO app_config (key, value) VALUES ($1, $2)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [key, value])
+      } else {
+        await query(`DELETE FROM app_config WHERE key = $1`, [key])
+      }
+      out[field] = value
+    }
+    res.json(out)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 export default router

@@ -73,10 +73,17 @@ const NOT_ON_FILE =
  */
 router.get('/contact', async (req, res) => {
   try {
-    const r = await query(`SELECT value FROM app_config WHERE key = 'owner_phone'`)
-    res.json({ phone: r.rows[0]?.value || null })
+    const r = await query(
+      `SELECT key, value FROM app_config
+       WHERE key IN ('owner_phone', 'business_email', 'business_location')`)
+    const c = Object.fromEntries(r.rows.map(x => [x.key, x.value]))
+    res.json({
+      phone: c.owner_phone || null,
+      email: c.business_email || null,
+      location: c.business_location || null,
+    })
   } catch {
-    res.json({ phone: null })
+    res.json({ phone: null, email: null, location: null })
   }
 })
 

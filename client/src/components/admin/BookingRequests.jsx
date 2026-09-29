@@ -51,6 +51,8 @@ export default function BookingRequests() {
   const [recent, setRecent] = useState([])
   const [smsStatus, setSmsStatus] = useState(null)
   const [ownerPhone, setOwnerPhone] = useState('')
+  const [biz, setBiz] = useState({ email: '', location: '' })
+  const [bizSaved, setBizSaved] = useState(null)
   const [phoneSaved, setPhoneSaved] = useState(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -82,6 +84,9 @@ export default function BookingRequests() {
     api.get('/settings/owner/phone')
       .then(r => setOwnerPhone(r.data.phone || ''))
       .catch(() => {})
+    api.get('/settings/business')
+      .then(r => setBiz({ email: r.data.email || '', location: r.data.location || '' }))
+      .catch(() => {})
   }, [])
 
   const requestLink = `${window.location.origin}/request`
@@ -94,6 +99,20 @@ export default function BookingRequests() {
     } catch {
       window.prompt('Copy this link:', requestLink)
     }
+  }
+
+  // Published on the home page and in the policies — the texting registration
+  // needs a contact address and service area a reviewer can see.
+  const saveBusiness = async () => {
+    setBizSaved(null)
+    try {
+      const r = await api.put('/settings/business', biz)
+      setBiz({ email: r.data.email || '', location: r.data.location || '' })
+      setBizSaved('Saved')
+    } catch (e) {
+      setBizSaved(e.response?.data?.error || 'Could not save')
+    }
+    setTimeout(() => setBizSaved(null), 3000)
   }
 
   const saveOwnerPhone = async () => {
@@ -359,6 +378,39 @@ export default function BookingRequests() {
             <span style={{ fontSize: 12.5, color: '#e67e22' }}>
               Not set — you won't be told about new requests.
             </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#2c3e50', margin: '14px 0 6px' }}>
+          Shown on your public page
+        </div>
+        <div style={{ fontSize: 12.5, color: '#6c7a89', marginBottom: 10 }}>
+          Your email and town appear on your home page and in the privacy and SMS terms.
+          The phone number above is shown there too. Texting registration needs these
+          published so the carriers can match them to your business.
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="email"
+            value={biz.email}
+            onChange={e => setBiz(b => ({ ...b, email: e.target.value }))}
+            placeholder="Email address"
+            style={{ padding: '7px 10px', fontSize: 13, borderRadius: 5,
+                     border: '1px solid #d9c3cb', width: 220 }}
+          />
+          <input
+            type="text"
+            value={biz.location}
+            onChange={e => setBiz(b => ({ ...b, location: e.target.value }))}
+            placeholder="Town, State"
+            style={{ padding: '7px 10px', fontSize: 13, borderRadius: 5,
+                     border: '1px solid #d9c3cb', width: 170 }}
+          />
+          <button onClick={saveBusiness} style={{ ...smallBtn, background: '#2980b9' }}>
+            Save
+          </button>
+          {bizSaved && (
+            <span style={{ fontSize: 12.5, color: '#27ae60', fontWeight: 600 }}>{bizSaved}</span>
           )}
         </div>
       </div>

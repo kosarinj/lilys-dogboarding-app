@@ -4,6 +4,7 @@ import AdminPage from './pages/AdminPage'
 import BillPage from './pages/BillPage'
 import BookingPage from './pages/BookingPage'
 import RequestAccessPage from './pages/RequestAccessPage'
+import HomePage from './pages/HomePage'
 import { PrivacyPage, TermsPage } from './pages/PolicyPages'
 import { isLoggedIn } from './utils/auth'
 
@@ -16,7 +17,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+        {/* Public front page, and the brand website the texting registration
+            points at. Was a redirect to the admin login, which left the brand
+            with no website a reviewer could open. */}
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/*" element={<RequireAuth><AdminPage /></RequireAuth>} />
         <Route path="/bill/:billCode" element={<BillPage />} />
