@@ -2,7 +2,7 @@
   "name": "Lily's Dog Boarding",
   "short_name": "Lily's",
   "description": "Lily's Dog Boarding management portal",
-  "start_url": "/",
+  "start_url": "/admin/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

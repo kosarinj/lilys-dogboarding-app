@@ -13,6 +13,21 @@ function RequireAuth({ children }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />
 }
 
+// Launched from the phone's home-screen icon (iOS navigator.standalone, or the
+// manifest's display mode elsewhere).
+const isHomeScreenApp = () =>
+  window.navigator.standalone === true ||
+  window.matchMedia?.('(display-mode: standalone)').matches
+
+// "/" is the public website for the texting reviewer, but it's also where the
+// home-screen app opens — so staff (installed app, or already signed in) go
+// straight to the dashboard. A reviewer in a normal browser still sees the page.
+function Front() {
+  return isHomeScreenApp() || isLoggedIn()
+    ? <Navigate to="/admin/dashboard" replace />
+    : <HomePage />
+}
+
 function App() {
   return (
     <Router>
@@ -20,7 +35,7 @@ function App() {
         {/* Public front page, and the brand website the texting registration
             points at. Was a redirect to the admin login, which left the brand
             with no website a reviewer could open. */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Front />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/*" element={<RequireAuth><AdminPage /></RequireAuth>} />
         <Route path="/bill/:billCode" element={<BillPage />} />
